@@ -1,4 +1,5 @@
 #pragma once
+#define getindex(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
 
 typedef struct tensor_fp32{
 	int size;
@@ -24,7 +25,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
 tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding);
 
 float op_fp32getindex4d(tensor_fp32* t, int n, int c, int h, int w);
-float op_fp32getindex(tensor_fp32* t, ...);
+float op_fp32getindex(tensor_fp32* t, int ndims, ...);
 void op_fp32setindex4d(tensor_fp32* t, int n, int c, int h, int w, float val);
 
 void scalarop_inplace_fp32mul(tensor_fp32* t, float scalar);

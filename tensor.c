@@ -117,13 +117,7 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
                         (c * padded->dims[2] * padded->dims[3]) +
                         ((h+padh) * padded->dims[3]) + 
                         w+padh
-                    ] = t->data[
-                        (n * t->dims[1] * t->dims[2] * t->dims[3]) +
-                        (c * t->dims[2] * t->dims[3]) +
-                        (h * t->dims[3]) + 
-                        w
-                    ];
-
+                    ] = getindex(t, n, c, h, w);
                 }
             }
         }
@@ -131,9 +125,9 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
     return padded;
 }
 
-float op_fp32getindex(tensor_fp32* t, ...){
+float op_fp32getindex(tensor_fp32* t, int ndims, ...){
     va_list indexes;
-    va_start(indexes, t->ndims);
+    va_start(indexes, ndims);
     int idx = 0;
     for (int i =0; i < t->ndims; i++){
         int index = va_arg(indexes, int);
@@ -218,8 +212,8 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
                     float max_val = -INFINITY;
                     for (int kh=h-laddh; kh <= h + raddw; kh++){
                         for (int kw=w-laddw; kw <= w + raddw; kw++){
-                            if (op_fp32getindex(t,n,c,kh,kw) > max_val){
-                                max_val = op_fp32getindex(t,n,c,kh,kw);
+                            if (getindex(t,n,c,kh,kw) > max_val){
+                                max_val = getindex(t,n,c,kh,kw);
                             }
                         }
                     }
