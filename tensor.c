@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -130,6 +131,20 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
     return padded;
 }
 
+float op_fp32getindex(tensor_fp32* t, ...){
+    va_list indexes;
+    va_start(indexes, t->ndims);
+    int idx = 0;
+    for (int i =0; i < t->ndims; i++){
+        int index = va_arg(indexes, int);
+        for (int j = i+1; j<t->ndims; j++){
+            index *= t->dims[j];
+        }
+        idx += index;
+    }
+    return t->data[idx];
+}
+
 float op_fp32getindex4d(tensor_fp32* t, int n, int c, int h, int w){
     return t->data[
         (n * t->dims[1] * t->dims[2] * t->dims[3]) + 
@@ -203,8 +218,8 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
                     float max_val = -INFINITY;
                     for (int kh=h-laddh; kh <= h + raddw; kh++){
                         for (int kw=w-laddw; kw <= w + raddw; kw++){
-                            if (op_fp32getindex4d(t,n,c,kh,kw) > max_val){
-                                max_val = op_fp32getindex4d(t,n,c,kh,kw);
+                            if (op_fp32getindex(t,n,c,kh,kw) > max_val){
+                                max_val = op_fp32getindex(t,n,c,kh,kw);
                             }
                         }
                     }
