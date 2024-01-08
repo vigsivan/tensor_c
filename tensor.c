@@ -41,7 +41,9 @@ tensor_fp32* init_with_zeros(int ndims, int* dims){
 	for (int i = 0; i < t->size; i++) {
 		data[i] = 0.0;
 	}
-	return init_with_data(ndims, dims, data);
+    tensor_fp32* ret = init_with_data(ndims, dims, data);
+    free(data);
+	return ret;
 }
 
 tensor_fp32* init_with_random(int ndims, int* dims){
@@ -57,7 +59,9 @@ tensor_fp32* init_with_random(int ndims, int* dims){
 	for (int i = 0; i < size; i++) {
 		data[i] = (float)rand() / RAND_MAX;
 	}
-	return init_with_data(ndims, dims, data);
+    tensor_fp32* ret = init_with_data(ndims, dims, data);
+    free(data);
+	return ret;
 }
 
 tensor_fp32* init_nodata(int ndims, int* dims){
