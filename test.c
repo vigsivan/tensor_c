@@ -31,7 +31,7 @@ int main(){
     print_data(k);
 
     // tensor_fp32* out = op_fp32conv2d(a, k, 1, 1);
-    tensor_fp32* out = op_fp32maxpool2d(a, 2,2, 1, 1);
+    tensor_fp32* out = op_fp32maxpool2d(a, 2,2, 1, 0);
 
     printf("Output array:\n");
     print_2d(out);
