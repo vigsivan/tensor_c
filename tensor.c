@@ -93,7 +93,7 @@ tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar){
 }
 
 
-tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw){
+tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval){
     if(t->ndims != 4){
         printf("Error: scalarop_fp32pad2d expects 4d input tensor");
         exit(1);
@@ -101,6 +101,8 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw){
 
     int new_shape[4] =  {t->dims[0],t->dims[1],(padh*2)+t->dims[2],(padw*2)+t->dims[3]};
     tensor_fp32* padded = init_with_zeros(4, new_shape);
+    scalarop_inplace_fp32add(padded, padval);
+
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c<t->dims[1]; c++){
             for (int h=0; h<t->dims[2]; h++){
@@ -127,13 +129,72 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw){
 /*
  * Implements 2D maxpool
  * output tensor has shape (N, 1, ho, wo) (output shape depends on padding)
- * this function is probably really inefficient.
+ * if padding is non-zero, each side is padded with negative infinity for padding
  * t: input tensor with shape (N, Cin, H, W)
  * k: kernel tensor with 2d shape (h, w)
  * stride: stride of convolution
  * padding: padding of convolution
  */
-tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, tensor_fp32* k, int stride, int padding){
+tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding){
+    if(t->ndims != 4){
+        printf("Error: op_fp32conv2d expects 4d input tensor");
+        exit(1);
+    }
+    if (padding < 0){
+        printf("Error: expecting padding to be gte 0. Got %d", padding);
+        exit(1);
+    }
+
+    int ho = floor((t->dims[2] + 2*padding - 1*(kh-1)-1)/stride + 1);
+    int wo = floor((t->dims[3] + 2*padding - 1*(kw-1)-1)/stride + 1);
+
+    int mid_h = floor(kh / 2);
+    int mid_w = floor(kw / 2);
+
+    int shape[4] = {t->dims[0], t->dims[1], ho, wo};
+    tensor_fp32* out = init_nodata(4, shape);
+
+    if (padding > 0){
+        t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
+        printf("Padded tensor:\n");
+        print_2d(t);
+    }
+
+    int out_ptr = 0;
+    for (int n=0; n<t->dims[0]; n++){
+        for (int c=0; c < t-> dims[1]; c++) {
+            for (int h=mid_h; h < t->dims[2]-mid_h; h+=stride){
+                for (int w=mid_w; w < t->dims[3]-mid_w; w+=stride){
+                    int kh= h-mid_h, kw=w-mid_w;
+                    float max_val = -INFINITY;
+                    for (int kh=h-mid_h; kh <= h + mid_h; kh++){
+                        for (int kw=w-mid_w; kw <= w + mid_w; kw++){
+                            if (t->data[
+                                    (n * t->dims[1] * t->dims[2] * t->dims[3]) +
+                                    (c * t->dims[2] * t->dims[3]) +
+                                    (kh * t->dims[3]) + 
+                                    kw
+                                    ] > max_val){
+                                max_val = t->data[
+                                    (n * t->dims[1] * t->dims[2] * t->dims[3]) +
+                                    (c * t->dims[2] * t->dims[3]) +
+                                    (kh * t->dims[3]) + 
+                                    kw
+                                ];
+                            }
+                        }
+                    }
+                    out->data[out_ptr] = max_val;
+                    out_ptr += 1;
+                }
+            }
+        }
+    }
+    
+    if (padding > 0){
+        free(t);
+    } 
+    return out;
 }
 
 /*
@@ -144,7 +205,7 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, tensor_fp32* k, int stride, int pa
  * t: input tensor with shape (N, Cin, H, W)
  * k: kernel tensor with 2d shape (h, w)
  * stride: stride of convolution
- * padding: padding of convolution
+ * padding: padding of convolution. Note: only 0-padding is supported
  */
 tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int padding){
     if(t->ndims != 4){
@@ -156,7 +217,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
         exit(1);
     }
     if (padding < 0){
-        printf("Error: expecting padding to be greater than 0. Got %d", padding);
+        printf("Error: expecting padding to be gte 0. Got %d", padding);
         exit(1);
     }
     
@@ -165,7 +226,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
     int wo = floor((t->dims[2] + 2 * padding - 1 * (k->dims[0]-1)-1)/stride + 1);
 
     if (padding > 0) {
-        t = scalarop_fp32pad2d(t, padding, padding);
+        t = scalarop_fp32pad2d(t, padding, padding, (float) 0);
         printf("Padded tensor:\n");
         print_2d(t);
     }
