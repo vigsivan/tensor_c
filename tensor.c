@@ -134,64 +134,6 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw){
  * padding: padding of convolution
  */
 tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, tensor_fp32* k, int stride, int padding){
-    if(t->ndims != 4){
-        printf("Error: op_fp32conv2d expects 4d input tensor");
-        exit(1);
-    }
-    if(k->ndims != 2){
-        printf("Error: op_fp32conv2d expects 2d kernel. Got %d", k->ndims);
-        exit(1);
-    }
-    if (padding < 0){
-        printf("Error: expecting padding to be greater than 0. Got %d", padding);
-        exit(1);
-    }
-    
-    // pre-compute output height and width. we'll use formulae from PyTorch docs
-    // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
-    int ho = floor((t->dims[2] + 2 * padding - 1 * (k->dims[0]-1)-1)/stride + 1);
-    int wo = floor((t->dims[2] + 2 * padding - 1 * (k->dims[0]-1)-1)/stride + 1);
-
-    if (padding > 0) {
-        t = scalarop_fp32pad2d(t, padding, padding);
-        printf("Padded tensor:\n");
-        print_2d(t);
-    }
-
-    int mid_h = floor(k->dims[0] / 2);
-    int mid_w = floor(k->dims[1] / 2);
-    int out_shape[4] = {t->dims[0], 1, ho, wo};
-    tensor_fp32* out = init_nodata(4, out_shape);
-    int out_ptr = 0;
-    for (int n=0; n < t->dims[0]; n++){
-        for (int h=mid_h; h < t->dims[2]-mid_h; h+=stride){
-            for (int w=mid_w; w < t->dims[3]-mid_w; w+=stride){
-                float res = 0;
-                for (int c = 0; c < t->dims[1]; c++){
-                    int k_ptr = 0;
-                    for (int kh=h-mid_h; kh <= h + mid_h; kh++){
-                        for (int kw=w-mid_w; kw <= w + mid_w; kw++){
-                            res += k->data[k_ptr] * t->data[
-                                (n * t->dims[1] * t->dims[2] * t->dims[3]) +
-                                (c * t->dims[2] * t->dims[3]) +
-                                (kh * t->dims[3]) + 
-                                kw
-                                ]; 
-                        }
-                        k_ptr += 1;
-                    }
-                }
-                out->data[out_ptr] = res;
-                out_ptr += 1;
-            }
-        }
-    }
-
-    if (padding > 0){
-        free(t);
-    }
-
-    return out;
 }
 
 /*
@@ -209,8 +151,8 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
         printf("Error: op_fp32conv2d expects 4d input tensor");
         exit(1);
     }
-    if(k->ndims != 2){
-        printf("Error: op_fp32conv2d expects 2d kernel. Got %d", k->ndims);
+    if(k->ndims != 3){
+        printf("Error: op_fp32conv2d expects kernel with 3dims (c,h,w). Got %d", k->ndims);
         exit(1);
     }
     if (padding < 0){
@@ -218,7 +160,6 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
         exit(1);
     }
     
-    // pre-compute output height and width. we'll use formulae from PyTorch docs
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
     int ho = floor((t->dims[2] + 2 * padding - 1 * (k->dims[0]-1)-1)/stride + 1);
     int wo = floor((t->dims[2] + 2 * padding - 1 * (k->dims[0]-1)-1)/stride + 1);
@@ -231,29 +172,33 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
 
     int mid_h = floor(k->dims[0] / 2);
     int mid_w = floor(k->dims[1] / 2);
-    int out_shape[4] = {t->dims[0], 1, ho, wo};
+    int out_channels = k->dims[0];
+    int kernel_size = k->dims[1] * k->dims[2];
+    int out_shape[4] = {t->dims[0], out_channels, ho, wo};
     tensor_fp32* out = init_nodata(4, out_shape);
     int out_ptr = 0;
     for (int n=0; n < t->dims[0]; n++){
-        for (int h=mid_h; h < t->dims[2]-mid_h; h+=stride){
-            for (int w=mid_w; w < t->dims[3]-mid_w; w+=stride){
-                float res = 0;
-                for (int c = 0; c < t->dims[1]; c++){
-                    int k_ptr = 0;
-                    for (int kh=h-mid_h; kh <= h + mid_h; kh++){
-                        for (int kw=w-mid_w; kw <= w + mid_w; kw++){
-                            res += k->data[k_ptr] * t->data[
-                                (n * t->dims[1] * t->dims[2] * t->dims[3]) +
-                                (c * t->dims[2] * t->dims[3]) +
-                                (kh * t->dims[3]) + 
-                                kw
-                                ]; 
+        for (int oc=0; oc < out_channels; oc++){
+            for (int h=mid_h; h < t->dims[2]-mid_h; h+=stride){
+                for (int w=mid_w; w < t->dims[3]-mid_w; w+=stride){
+                    float res = 0;
+                    for (int c = 0; c < t->dims[1]; c++){
+                        int k_ptr = oc * kernel_size;
+                        for (int kh=h-mid_h; kh <= h + mid_h; kh++){
+                            for (int kw=w-mid_w; kw <= w + mid_w; kw++){
+                                res += k->data[k_ptr] * t->data[
+                                    (n * t->dims[1] * t->dims[2] * t->dims[3]) +
+                                    (c * t->dims[2] * t->dims[3]) +
+                                    (kh * t->dims[3]) + 
+                                    kw
+                                    ]; 
+                            }
+                            k_ptr += 1;
                         }
-                        k_ptr += 1;
                     }
+                    out->data[out_ptr] = res;
+                    out_ptr += 1;
                 }
-                out->data[out_ptr] = res;
-                out_ptr += 1;
             }
         }
     }

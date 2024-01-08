@@ -7,15 +7,26 @@ void print_data(tensor_fp32 *t);
 
 int main(){
     srand(42);
-    int kernel_shape[2] = {3,3};
+    int kernel_shape[3] = {3, 3,3};
     int image_shape[4] = {1, 1, 5, 5};
 
     tensor_fp32 *a = init_with_random(4, image_shape);
 
     // create a 3x3 mean kernel
-    tensor_fp32 *k = init_with_zeros(2, kernel_shape);
-    scalarop_inplace_fp32add(k, 1);
-    scalarop_inplace_fp32mul(k, (float) 1/9);
+    // tensor_fp32 *k = init_with_zeros(3, kernel_shape);
+    // scalarop_inplace_fp32add(k, 1);
+    // scalarop_inplace_fp32mul(k, (float) 1/9);
+    //
+    float data[] = {
+        1,1,1,1,1,1,1,1,1,
+        2,2,2,2,2,2,2,2,2,
+        3,3,3,3,3,3,3,3,3,
+    };
+    tensor_fp32* k = init_with_data(3, kernel_shape, data) ;
+    // tensor_fp32 *k = init_with_zeros(3, kernel_shape);
+    // scalarop_inplace_fp32add(k, 1);
+    // scalarop_inplace_fp32mul(k, (float) 1/9);
+
 
     printf("Input array:\n");
     print_2d(a);
