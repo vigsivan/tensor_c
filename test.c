@@ -3,7 +3,6 @@
 #include "tensor.h"
 
 void print_data(tensor_fp32 *t);
-// void print_tensor2d(tensor2d *t);
 
 int main(){
     srand(42);
@@ -27,11 +26,11 @@ int main(){
     printf("Input array:\n");
     print_2d(a);
 
-    printf("3x3 Kernel array:\n");
-    print_data(k);
+    // printf("3x3 Kernel array:\n");
+    // print_data(k);
 
     // tensor_fp32* out = op_fp32conv2d(a, k, 1, 1);
-    tensor_fp32* out = op_fp32maxpool2d(a, 2,2, 1, 0);
+    tensor_fp32* out = op_fp32maxpool2d(a, 2,2, 2, 1);
 
     printf("Output array:\n");
     print_2d(out);

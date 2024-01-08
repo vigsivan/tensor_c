@@ -101,7 +101,7 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
 
     int new_shape[4] =  {t->dims[0],t->dims[1],(padh*2)+t->dims[2],(padw*2)+t->dims[3]};
     tensor_fp32* padded = init_with_zeros(4, new_shape);
-    // scalarop_inplace_fp32add(padded, padval);
+    scalarop_inplace_fp32add(padded, padval);
 
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c<t->dims[1]; c++){
@@ -169,29 +169,45 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
     int mid_h = floor(kh / 2);
     int mid_w = floor(kw / 2);
 
+    int laddh, raddh, laddw, raddw;
+    if (kh % 2 == 0) {
+        laddh = mid_h, raddh = mid_h - 1;
+    }
+    else {
+        laddh = mid_h, raddh = mid_h;
+    }
+    if (kw % 2 == 0) {
+        laddw = mid_w, raddw = mid_w - 1;
+    }
+    else {
+        laddw = mid_w, raddw = mid_w;
+    }
+
     int shape[4] = {t->dims[0], t->dims[1], ho, wo};
-    printf("Out shape: "); for (int i = 0; i < 4; i++) { printf("%d,", shape[i]);} printf("\n");
     tensor_fp32* out = init_nodata(4, shape);
 
     if (padding > 0){
         t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
-        printf("Padded tensor:\n");
-        print_2d(t);
+        // printf("Padded tensor:\n");
+        // print_2d(t);
     }
 
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c < t-> dims[1]; c++) {
-            for (int h=mid_h; h <= t->dims[2]-mid_h; h+=stride){
-                for (int w=mid_w; w <= t->dims[3]-mid_w; w+=stride){
+            for (int h=laddh; h <= t->dims[2]-raddh; h+=stride){
+                for (int w=laddw; w <= t->dims[3]-raddw; w+=stride){
                     float max_val = -INFINITY;
-                    for (int kh=h-mid_h; kh <= h + mid_h; kh++){
-                        for (int kw=w-mid_w; kw <= w + mid_w; kw++){
+                    for (int kh=h-laddh; kh <= h + raddw; kh++){
+                        for (int kw=w-laddw; kw <= w + raddw; kw++){
                             if (op_fp32getindex4d(t,n,c,kh,kw) > max_val){
                                 max_val = op_fp32getindex4d(t,n,c,kh,kw);
                             }
                         }
                     }
-                    op_fp32setindex4d(out, n, c, h-mid_h, w-mid_w, max_val);
+                    // TODO: verify if this is the correct formula for
+                    // getting the output indices
+                    op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
+                            floor((w-laddw)/stride), max_val);
                 }
             }
         }
