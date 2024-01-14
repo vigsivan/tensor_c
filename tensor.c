@@ -186,8 +186,8 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
                         }
                         // TODO: verify if this is the correct formula for
                         // getting the output indices
-                        // op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
-                        //         floor((w-laddw)/stride), max_val);
+                        op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
+                                floor((w-laddw)/stride), max_val);
 
                     }
                 }
