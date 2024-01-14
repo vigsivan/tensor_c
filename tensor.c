@@ -6,14 +6,11 @@
 
 tensor_fp32* init_with_data(int ndims, int* dims, float* data){
     if(dims == NULL){
-	printf("Error: dims is NULL\n");
-	exit(1);
+        printf("Error: dims is NULL\n");
+        exit(1);
     }
-	if (data == NULL) {
-		printf("Error: data is NULL\n");
-		exit(1);
-	}
-    tensor_fp32 *t = (tensor_fp32 *)malloc(sizeof(tensor_fp32));
+
+    tensor_fp32 *t = calloc(1, sizeof(tensor_fp32));
 	int size = 1;
 	for (int i = 0; i < ndims; i++) {
 		size *= dims[i];
@@ -23,70 +20,42 @@ tensor_fp32* init_with_data(int ndims, int* dims, float* data){
     t->strides = NULL;
     t->dims = (int *)malloc(ndims * sizeof(int));
     for(int i=0; i<ndims; i++){
-	t->dims[i] = dims[i];
+        t->dims[i] = dims[i];
     }
-    t->data = (float *)malloc(size * sizeof(float));
-    for(int i=0; i<size; i++){
-	t->data[i] = data[i];
+    t->data = calloc(size,  sizeof(float));
+    if (data != NULL){
+        for(int i=0; i<size; i++){
+            t->data[i] = data[i];
+        }
     }
     return t;
 }
 
 tensor_fp32* init_with_zeros(int ndims, int* dims){
-    if(dims == NULL){
-        printf("Error: dims is NULL\n");
-        exit(1);
-    }
-    tensor_fp32 *t = init_nodata(ndims, dims);
-	float* data = (float*)malloc(t->size * sizeof(float));
-	for (int i = 0; i < t->size; i++) {
-		data[i] = 0.0;
-	}
-    tensor_fp32* ret = init_with_data(ndims, dims, data);
-    free(data);
-	return ret;
+    return init_with_data(ndims, dims, NULL);
+}
+
+tensor_fp32* init_tensor(int ndims, int* dims){
+    return init_with_data(ndims, dims, NULL);
+}
+
+void free_tensor(tensor_fp32* t){
+    free(t->data);
+    free(t->dims);
+    free(t->strides);
+    free(t);
 }
 
 tensor_fp32* init_with_random(int ndims, int* dims){
-    if(dims == NULL){
-	printf("Error: dims is NULL\n");
-	exit(1);
-    }
-	int size = 1;
-	for (int i = 0; i < ndims; i++) {
-		size *= dims[i];
+    tensor_fp32* t = init_with_data(ndims, dims, NULL);
+	for (int i = 0; i < t->size; i++) {
+		t->data[i] = (float)rand() / RAND_MAX;
 	}
-	float* data = (float*)malloc(size * sizeof(float));
-	for (int i = 0; i < size; i++) {
-		data[i] = (float)rand() / RAND_MAX;
-	}
-    tensor_fp32* ret = init_with_data(ndims, dims, data);
-    free(data);
-	return ret;
-}
-
-tensor_fp32* init_nodata(int ndims, int* dims){
-	if(dims == NULL){
-	printf("Error: dims is NULL\n");
-	exit(1);
-	}
-	tensor_fp32 *t = (tensor_fp32 *)malloc(sizeof(tensor_fp32));
-	t->ndims = ndims;
-	t->dims = (int *)malloc(ndims * sizeof(int));
-	for(int i=0; i<ndims; i++){
-        t->dims[i] = dims[i];
-	}
-    int size = 1;
-    for(int i=0; i<ndims; i++){
-        size *= dims[i];
-    }
-    t->data = (float *)malloc(size * sizeof(float));
-    t->size = size;
 	return t;
 }
 
 tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar){
-	tensor_fp32* t2 = init_nodata(t->ndims, t->dims);
+	tensor_fp32* t2 = init_tensor(t->ndims, t->dims);
 	int size = 1;
 	for (int i = 0; i < t->ndims; i++) {
 		size *= t->dims[i];
@@ -165,6 +134,7 @@ void op_fp32setindex4d(tensor_fp32* t, int n, int c, int h, int w, float val){
  * k: kernel tensor with 2d shape (h, w)
  * stride: stride of convolution
  * padding: padding of convolution
+ * FIXME: there is a memory bug in this function
  */
 tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding){
     if(t->ndims != 4){
@@ -197,38 +167,60 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
     }
 
     int shape[4] = {t->dims[0], t->dims[1], ho, wo};
-    tensor_fp32* out = init_nodata(4, shape);
+    tensor_fp32* out = init_tensor(4, shape);
+    tensor_fp32* padded = NULL;
 
     if (padding > 0){
-        t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
-        // printf("Padded tensor:\n");
-        // print_2d(t);
-    }
-
-    for (int n=0; n<t->dims[0]; n++){
-        for (int c=0; c < t-> dims[1]; c++) {
-            for (int h=laddh; h <= t->dims[2]-raddh; h+=stride){
-                for (int w=laddw; w <= t->dims[3]-raddw; w+=stride){
-                    float max_val = -INFINITY;
-                    for (int kh=h-laddh; kh <= h + raddw; kh++){
-                        for (int kw=w-laddw; kw <= w + raddw; kw++){
-                            if (getindex(t,n,c,kh,kw) > max_val){
-                                max_val = getindex(t,n,c,kh,kw);
+        padded = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
+        for (int n=0; n<padded->dims[0]; n++){
+            for (int c=0; c < padded-> dims[1]; c++) {
+                for (int h=laddh; h <= padded->dims[2]-raddh; h+=stride){
+                    for (int w=laddw; w <= padded->dims[3]-raddw; w+=stride){
+                        float max_val = -INFINITY;
+                        for (int kh=h-laddh; kh <= h + raddw; kh++){
+                            for (int kw=w-laddw; kw <= w + raddw; kw++){
+                                if (getindex(padded,n,c,kh,kw) > max_val){
+                                    max_val = getindex(padded,n,c,kh,kw);
+                                }
                             }
                         }
+                        // TODO: verify if this is the correct formula for
+                        // getting the output indices
+                        // op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
+                        //         floor((w-laddw)/stride), max_val);
+
                     }
-                    // TODO: verify if this is the correct formula for
-                    // getting the output indices
-                    op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
-                            floor((w-laddw)/stride), max_val);
+                }
+            }
+        }
+        printf("About to free padded\n");
+        free_tensor(padded);
+        printf("Freed padded\n");
+    }
+    else {
+        for (int n=0; n<t->dims[0]; n++){
+            for (int c=0; c < t-> dims[1]; c++) {
+                for (int h=laddh; h <= t->dims[2]-raddh; h+=stride){
+                    for (int w=laddw; w <= t->dims[3]-raddw; w+=stride){
+                        float max_val = -INFINITY;
+                        for (int kh=h-laddh; kh <= h + raddw; kh++){
+                            for (int kw=w-laddw; kw <= w + raddw; kw++){
+                                if (getindex(t,n,c,kh,kw) > max_val){
+                                    max_val = getindex(t,n,c,kh,kw);
+                                }
+                            }
+                        }
+                        // TODO: verify if this is the correct formula for
+                        // getting the output indices
+                        op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
+                                floor((w-laddw)/stride), max_val);
+
+                    }
                 }
             }
         }
     }
-    
-    if (padding > 0){
-        free(t);
-    } 
+
     return out;
 }
 
@@ -262,8 +254,6 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
 
     if (padding > 0) {
         t = scalarop_fp32pad2d(t, padding, padding, (float) 0);
-        printf("Padded tensor:\n");
-        print_2d(t);
     }
 
     int mid_h = floor(k->dims[0] / 2);
@@ -271,7 +261,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
     int out_channels = k->dims[0];
     int kernel_size = k->dims[1] * k->dims[2];
     int out_shape[4] = {t->dims[0], out_channels, ho, wo};
-    tensor_fp32* out = init_nodata(4, out_shape);
+    tensor_fp32* out = init_tensor(4, out_shape);
     int out_ptr = 0;
     for (int n=0; n < t->dims[0]; n++){
         for (int oc=0; oc < out_channels; oc++){
@@ -282,12 +272,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
                         int k_ptr = oc * kernel_size;
                         for (int kh=h-mid_h; kh <= h + mid_h; kh++){
                             for (int kw=w-mid_w; kw <= w + mid_w; kw++){
-                                res += k->data[k_ptr] * t->data[
-                                    (n * t->dims[1] * t->dims[2] * t->dims[3]) +
-                                    (c * t->dims[2] * t->dims[3]) +
-                                    (kh * t->dims[3]) + 
-                                    kw
-                                    ]; 
+                                res += k->data[k_ptr] * getindex(t, n, c, kh, kw);
                             }
                             k_ptr += 1;
                         }
@@ -300,7 +285,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
     }
 
     if (padding > 0){
-        free(t);
+        free_tensor(t);
     }
 
     return out;
@@ -353,7 +338,7 @@ tensor_fp32* op_fp32add(tensor_fp32* l, tensor_fp32* r){
             exit(1);
         }
     }
-    tensor_fp32 *t = init_nodata(l->ndims, l->dims);
+    tensor_fp32 *t = init_tensor(l->ndims, l->dims);
     int size = 1;
     for(int i=0; i<l->ndims; i++){
     size *= l->dims[i];
@@ -376,7 +361,7 @@ tensor_fp32* op_fp32sub(tensor_fp32* l, tensor_fp32* r){
         exit(1);
     }
     }
-    tensor_fp32 *t = init_nodata(l->ndims, l->dims);
+    tensor_fp32 *t = init_tensor(l->ndims, l->dims);
     int size = 1;
     for(int i=0; i<l->ndims; i++){
     size *= l->dims[i];

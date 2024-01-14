@@ -12,7 +12,8 @@ typedef struct tensor_fp32{
 tensor_fp32* init_with_data(int ndims, int* dims, float* data);
 tensor_fp32* init_with_zeros(int ndims, int* dims);
 tensor_fp32* init_with_random(int ndims, int* dims);
-tensor_fp32* init_nodata(int ndims, int* dims);
+tensor_fp32* init_tensor(int ndims, int* dims);
+void free_tensor(tensor_fp32* t);
 
 tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar);
 tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval);
