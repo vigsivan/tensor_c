@@ -12,8 +12,8 @@ bool check_equals(float* a, float* b, int size);
 bool maxpool2d_stride1_padding0();
 bool maxpool2d_stride2_padding0();
 bool maxpool2d_stride1_padding1();
-
 bool linear_layer_test();
+bool conv2d_mean_kernel();
 
 int main(){
     srand(42);
@@ -22,6 +22,7 @@ int main(){
     printf("maxpool2d_stride2_padding0: %s\n", maxpool2d_stride2_padding0() ? "PASSED" : "FAILED");
     printf("maxpool2d_stride1_padding1: %s\n", maxpool2d_stride1_padding1() ? "PASSED" : "FAILED");
     printf("linear_layer_test: %s\n", linear_layer_test() ? "PASSED" : "FAILED");
+    printf("conv_mean_kernel: %s\n", conv2d_mean_kernel() ? "PASSED" : "FAILED");
     printf("Done.\n");
 }
 
@@ -38,11 +39,13 @@ bool linear_layer_test(){
     float weight_data[8] = {1,2,3,4,5,6,7,8};
     tensor_fp32 *weight = init_with_data(2, weight_shape, weight_data);
 
-    tensor_fp32 *out = op_fp32linear(input, weight, NULL);
-    printf("linear out\n");
-    print_data(out);
+    int bias_shape[1] = {2};
+    float bias_data[2] = {1,2};
+    tensor_fp32 *bias = init_with_data(1, bias_shape, bias_data);
 
-    float expected[2] = {30, 70};
+    tensor_fp32 *out = op_fp32linear(input, weight, bias);
+
+    float expected[2] = {31, 72};
     bool passed = true;
 
     if (!check_equals(out->data, expected, 2)){
@@ -150,6 +153,48 @@ bool maxpool2d_stride1_padding1(){
 
     return passed;
 }
+
+/*
+ * Conv2d tests
+ */
+bool conv2d_mean_kernel() {
+    int image_shape[4] = {1, 1, 5, 5};
+    float image_data[25] = { 
+        1,2,3,4,5,
+        2,3,4,5,6,
+        3,4,5,6,7,
+        4,5,6,7,8,
+        5,6,7,8,9
+    };
+
+    tensor_fp32 *image = init_with_data(4, image_shape, image_data);
+
+    // create image 3x3 mean kernel
+    int kernel_shape[3] = {1, 3,3};
+    tensor_fp32 *k = init_with_zeros(3, kernel_shape);
+    scalarop_inplace_fp32add(k, 1);
+    scalarop_inplace_fp32mul(k, (float) 1/9);
+
+    tensor_fp32* out = op_fp32conv2d(image, k, 1, 0);
+    // tensor_fp32* out = op_fp32maxpool2d(image, 2,2, 2, 1);
+
+    float expected[9] = {
+        3,4,5,
+        4,5,6,
+        5,6,7
+    };
+
+    bool passed = check_equals(out->data, expected, 9);
+
+    printf("Output array:\n");
+    print_2d(out);
+
+    free_tensor(image);
+    free_tensor(k);
+    free_tensor(out);
+    return passed;
+}
+    
 
 
 bool check_equals(float* a, float* b, int size){
