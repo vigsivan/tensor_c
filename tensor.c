@@ -9,8 +9,7 @@ tensor_fp32* init_with_data(int ndims, int* dims, float* data){
         printf("Error: dims is NULL\n");
         exit(1);
     }
-
-    tensor_fp32 *t = calloc(1, sizeof(tensor_fp32));
+    tensor_fp32 *t = (tensor_fp32* ) malloc(sizeof(tensor_fp32));
 	int size = 1;
 	for (int i = 0; i < ndims; i++) {
 		size *= dims[i];
@@ -18,11 +17,11 @@ tensor_fp32* init_with_data(int ndims, int* dims, float* data){
     t->size = size;
 	t->ndims = ndims;
     t->strides = NULL;
-    t->dims = (int *)malloc(ndims * sizeof(int));
+    t->dims = malloc(ndims * sizeof(int));
     for(int i=0; i<ndims; i++){
-        t->dims[i] = dims[i];
+	t->dims[i] = dims[i];
     }
-    t->data = calloc(size,  sizeof(float));
+    t->data = calloc(size, sizeof(float));
     if (data != NULL){
         for(int i=0; i<size; i++){
             t->data[i] = data[i];
@@ -32,7 +31,16 @@ tensor_fp32* init_with_data(int ndims, int* dims, float* data){
 }
 
 tensor_fp32* init_with_zeros(int ndims, int* dims){
-    return init_with_data(ndims, dims, NULL);
+    tensor_fp32* ret = init_with_data(ndims, dims, NULL);
+	return ret;
+}
+
+tensor_fp32* init_with_random(int ndims, int* dims){
+    tensor_fp32* ret = init_with_data(ndims, dims, NULL);
+	for (int i = 0; i < ret->size; i++) {
+		ret->data[i] = (float)rand() / RAND_MAX;
+	}
+	return ret;
 }
 
 tensor_fp32* init_tensor(int ndims, int* dims){
@@ -44,14 +52,6 @@ void free_tensor(tensor_fp32* t){
     free(t->dims);
     free(t->strides);
     free(t);
-}
-
-tensor_fp32* init_with_random(int ndims, int* dims){
-    tensor_fp32* t = init_with_data(ndims, dims, NULL);
-	for (int i = 0; i < t->size; i++) {
-		t->data[i] = (float)rand() / RAND_MAX;
-	}
-	return t;
 }
 
 tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar){
@@ -105,36 +105,52 @@ float op_fp32getindex(tensor_fp32* t, int ndims, ...){
         }
         idx += index;
     }
+    if (idx >= t->size) {
+        printf("Get Error: index %d is out of bounds for tensor of size %d\n", idx, t->size);
+        exit(1);
+    }
     return t->data[idx];
 }
 
-float op_fp32getindex4d(tensor_fp32* t, int n, int c, int h, int w){
-    return t->data[
-        (n * t->dims[1] * t->dims[2] * t->dims[3]) + 
-        (c * t->dims[2] * t->dims[3]) + 
-        (h * t->dims[3]) + 
-        w ];
-}
+void op_fp32setindex(tensor_fp32* t, float val, int ndims, ...){
+    va_list indexes;
+    va_start(indexes, ndims);
+    int idx = 0;
+    int record[ndims];
+    for (int i =0; i < t->ndims; i++){
+        int index = va_arg(indexes, int);
+        record[i] = index;
+        for (int j = i+1; j<t->ndims; j++){
+            index *= t->dims[j];
+        }
+        idx += index;
+    }
+
+    // printf("Var func: Indexes passed in: ");
+    // for (int i=0; i < t->ndims; i++){
+    //     printf("%d, ", record[i]);
+    // }
+    // printf("\n");
 
 
-void op_fp32setindex4d(tensor_fp32* t, int n, int c, int h, int w, float val){
-    t->data[
-        (n * t->dims[1] * t->dims[2] * t->dims[3]) + 
-        (c * t->dims[2] * t->dims[3]) + 
-        (h * t->dims[3]) + 
-        w ] = val;
+    if (idx >= t->size) {
+        printf("Set Error: index %d is out of bounds for tensor of size %d\n", idx, t->size);
+        exit(1);
+    }
+    t->data[idx] = val;
 }
 
 
 /*
  * Implements 2D maxpool
  * output tensor has shape (N, 1, ho, wo) (output shape depends on padding)
- * if padding is non-zero, each side is padded with negative infinity for padding
+ * if padding is non-zero, each side is padded with negative infinity for padding.
+ * Note: we don't check if the padding is valid (i.e. if you supply a large value
+ * for padding, then the output might contain negative infinity values).
  * t: input tensor with shape (N, Cin, H, W)
  * k: kernel tensor with 2d shape (h, w)
  * stride: stride of convolution
  * padding: padding of convolution
- * FIXME: there is a memory bug in this function
  */
 tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding){
     if(t->ndims != 4){
@@ -146,11 +162,20 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
         exit(1);
     }
 
-    int ho = floor((t->dims[2] + 2*padding - 1*(kh-1)-1)/stride + 1);
-    int wo = floor((t->dims[3] + 2*padding - 1*(kw-1)-1)/stride + 1);
+
+    int ho = floor((t->dims[2] + 2*padding - (kh-1)-1)/stride + 1);
+    int wo = floor((t->dims[3] + 2*padding - (kw-1)-1)/stride + 1);
 
     int mid_h = floor(kh / 2);
     int mid_w = floor(kw / 2);
+
+    /* Get the mid point of the kernel
+     * if kernel size is even, then we decide the midpoint
+     * to be right of the center. ladddh and raddh are the
+     * number of elements to the left and right of the center
+     * we will use to compute the maxpool in the h dimension.
+     * Similarly for the w dimension.
+     */
 
     int laddh, raddh, laddw, raddw;
     if (kh % 2 == 0) {
@@ -168,59 +193,132 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
 
     int shape[4] = {t->dims[0], t->dims[1], ho, wo};
     tensor_fp32* out = init_tensor(4, shape);
-    tensor_fp32* padded = NULL;
 
     if (padding > 0){
-        padded = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
-        for (int n=0; n<padded->dims[0]; n++){
-            for (int c=0; c < padded-> dims[1]; c++) {
-                for (int h=laddh; h <= padded->dims[2]-raddh; h+=stride){
-                    for (int w=laddw; w <= padded->dims[3]-raddw; w+=stride){
-                        float max_val = -INFINITY;
-                        for (int kh=h-laddh; kh <= h + raddw; kh++){
-                            for (int kw=w-laddw; kw <= w + raddw; kw++){
-                                if (getindex(padded,n,c,kh,kw) > max_val){
-                                    max_val = getindex(padded,n,c,kh,kw);
-                                }
-                            }
-                        }
-                        // TODO: verify if this is the correct formula for
-                        // getting the output indices
-                        op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
-                                floor((w-laddw)/stride), max_val);
-
-                    }
-                }
-            }
-        }
-        printf("About to free padded\n");
-        free_tensor(padded);
-        printf("Freed padded\n");
+        t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
     }
-    else {
-        for (int n=0; n<t->dims[0]; n++){
-            for (int c=0; c < t-> dims[1]; c++) {
-                for (int h=laddh; h <= t->dims[2]-raddh; h+=stride){
-                    for (int w=laddw; w <= t->dims[3]-raddw; w+=stride){
-                        float max_val = -INFINITY;
-                        for (int kh=h-laddh; kh <= h + raddw; kh++){
-                            for (int kw=w-laddw; kw <= w + raddw; kw++){
-                                if (getindex(t,n,c,kh,kw) > max_val){
-                                    max_val = getindex(t,n,c,kh,kw);
-                                }
+
+    for (int n=0; n<t->dims[0]; n++){
+        for (int c=0; c < t-> dims[1]; c++) {
+            for (int h=laddh; h < t->dims[2] - raddh; h+=stride){
+                for (int w=laddw; w < t->dims[3] - raddw; w+=stride){
+                    float max_val = -INFINITY;
+                    for (int kh=h-laddh; kh <= h + raddw; kh++){
+                        for (int kw=w-laddw; kw <= w + raddw; kw++){
+                            if (getindex(t,n,c,kh,kw) > max_val){
+                                max_val = getindex(t,n,c,kh,kw);
                             }
                         }
-                        // TODO: verify if this is the correct formula for
-                        // getting the output indices
-                        op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
-                                floor((w-laddw)/stride), max_val);
-
                     }
+                    // TODO: verify if this is the correct formula for
+                    // getting the output indices
+                    // op_fp32setindex4d(out, n, c, floor((h-laddh)/stride),
+                    //         floor((w-laddw)/stride), max_val);
+
+                    int hindex = floor((h-laddh)/stride);
+                    int windex = floor((w-laddw)/stride);
+                    setindex(out, max_val, n, c, hindex, windex);
                 }
             }
         }
     }
+    
+    if (padding > 0){
+        free_tensor(t);
+    } 
+    return out;
+}
 
+/*
+ * Implements flattenining operation
+ * input tensor has shape (N, *)
+ * output tensor has shape (N, D) where D = prod(*)
+ * Note: This function just returns a view of the original data.
+ */
+tensor_fp32* op_fp32flatten(tensor_fp32* t){
+    int new_shape[2] = {t->dims[0], 1};
+    for (int i=1; i < t->ndims; i++){
+        new_shape[1] *= t->dims[i];
+    }
+    tensor_fp32* out = init_tensor(2, new_shape);
+    out->data = t->data;
+    return out;
+}
+
+tensor_fp32* op_fp32transposelinear(tensor_fp32* t){
+    if(t->ndims != 2){
+        printf("Error: op_fp32transposelinear expects 2d input tensor");
+        exit(1);
+    }
+    int new_shape[2] = {t->dims[1], t->dims[0]};
+    tensor_fp32* out = init_tensor(2, new_shape);
+    for (int n=0; n < t->dims[0]; n++){
+        for (int c=0; c < t->dims[1]; c++){
+            setindex(out, getindex(t, n, c), c, n);
+        }
+    }
+    return out;
+}
+
+tensor_fp32* op_fp32relu(tensor_fp32* t){
+    tensor_fp32* out = init_tensor(t->ndims, t->dims);
+    for (int i=0; i < t->size; i++){
+        if (t->data[i] < 0){
+            out->data[i] = 0;
+        }
+        else{
+            out->data[i] = t->data[i];
+        }
+    }
+    return out;
+}
+
+/**
+ * Implements linear layer
+ * input tensor has shape (N, Cin)
+ * weight tensor has shape (Cout, Cin) (Thus the weight tensor is transposed prior to computation)
+ * bias tensor has shape (Cout). bias can be NULL
+ * output tensor has shape (N, Cout)
+ */
+tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
+    if(t->ndims != 2){
+        printf("Error: op_fp32linear expects 2d input tensor");
+        exit(1);
+    }
+    if(w->ndims != 2){
+        printf("Error: op_fp32linear expects 2d weight tensor");
+        exit(1);
+    }
+
+    tensor_fp32* w_t = op_fp32transposelinear(w);
+
+    if(b != NULL && b->ndims != 1){
+        printf("Error: op_fp32linear expects 1d bias tensor (if provided)");
+        exit(1);
+    }
+    if(t->dims[1] != w_t->dims[0]){
+        printf("Error: op_fp32linear expects input and weight dims to match");
+        exit(1);
+    }
+    if(b != NULL && w_t->dims[1] != b->dims[0]){
+        printf("Error: op_fp32linear expects weight and bias dims to match");
+        exit(1);
+    }
+    int new_shape[2] = {t->dims[0], w_t->dims[1]};
+    tensor_fp32* out = init_tensor(2, new_shape);
+    for (int n=0; n < t->dims[0]; n++){
+        for (int c=0; c < w_t->dims[1]; c++){
+            float res = 0;
+            for (int i=0; i < t->dims[1]; i++){
+                res += getindex(t, n, i) * getindex(w_t, i, c);
+            }
+            if (b != NULL){
+                res += b->data[c];
+            }
+            setindex(out, res, n, c);
+        }
+    }
+    free_tensor(w_t);
     return out;
 }
 
@@ -254,6 +352,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
 
     if (padding > 0) {
         t = scalarop_fp32pad2d(t, padding, padding, (float) 0);
+        print_2d(t);
     }
 
     int mid_h = floor(k->dims[0] / 2);
@@ -272,7 +371,12 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
                         int k_ptr = oc * kernel_size;
                         for (int kh=h-mid_h; kh <= h + mid_h; kh++){
                             for (int kw=w-mid_w; kw <= w + mid_w; kw++){
-                                res += k->data[k_ptr] * getindex(t, n, c, kh, kw);
+                                res += k->data[k_ptr] * t->data[
+                                    (n * t->dims[1] * t->dims[2] * t->dims[3]) +
+                                    (c * t->dims[2] * t->dims[3]) +
+                                    (kh * t->dims[3]) + 
+                                    kw
+                                    ]; 
                             }
                             k_ptr += 1;
                         }
@@ -324,6 +428,20 @@ void print_2d(tensor_fp32* t){
                 else{ printf("|\n"); }
             }
         }
+    }
+}
+
+void print_linear(tensor_fp32* t){
+    for (int n=0; n < t->dims[0]; n++){
+        if (n == 0){ printf("⎡ "); }
+        else if (n==t->dims[0]-1){ printf("⎣ "); }
+        else{ printf("| "); }
+        for (int c=0; c < t->dims[1]; c++){
+            printf("%f ", getindex(t, n, c));
+        }
+        if (n == 0){ printf("⎤\n"); }
+        else if (n==t->dims[0]-1){ printf("⎦\n"); }
+        else{ printf("|\n"); }
     }
 }
 
