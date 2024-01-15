@@ -156,7 +156,7 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
  */
 tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding){
     if(t->ndims != 4){
-        printf("Error: op_fp32conv2d expects 4d input tensor");
+        printf("Error: op_fp32maxpool2d expects 4d input tensor");
         exit(1);
     }
     if (padding < 0){
@@ -288,14 +288,28 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
                     float res = 0;
                     for (int c = 0; c < t->dims[1]; c++){
                         int k_ptr = oc * kernel_size;
-                        for (int kh=h-raddh; kh <= h + raddh; kh++){
-                            for (int kw=w-raddw; kw <= w + raddw; kw++){
+                        int hstart, wstart;
+                        // TODO: remove this, quite ugly
+                        if (k->dims[1]%2 == 0){
+                            hstart = h - raddh - 1;
+                        }
+                        else{
+                            hstart = h - raddh;
+                        }
+                        if (k->dims[2]%2 == 0){
+                            wstart = w - raddw - 1;
+                        }
+                        else{
+                            wstart = w - raddw;
+                        }
+                        
+                        for (int kh=hstart; kh <= h + raddh; kh++){
+                            for (int kw=wstart; kw <= w + raddw; kw++){
                                 res += k->data[k_ptr] * getindex(t, n, c, kh, kw);
                             }
                             k_ptr += 1;
                         }
                     }
-                    // printf("Setting %f at %d\n", res, out_ptr);
                     out->data[out_ptr] = res;
                     out_ptr += 1;
                 }
