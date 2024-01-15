@@ -252,18 +252,15 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
     }
     
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
-    int ho = floor((t->dims[2] + 2 * padding - (k->dims[0]-1)-1)/stride + 1);
-    int wo = floor((t->dims[3] + 2 * padding - (k->dims[0]-1)-1)/stride + 1);
-
-    printf("ho: %d, wo: %d\n", ho, wo);
+    int ho = floor((t->dims[2] + 2 * padding - (k->dims[1]-1)-1)/stride + 1);
+    int wo = floor((t->dims[3] + 2 * padding - (k->dims[2]-1)-1)/stride + 1);
 
     if (padding > 0) {
         t = scalarop_fp32pad2d(t, padding, padding, (float) 0);
-        print_2d(t);
     }
 
-    int mid_h = floor(k->dims[0] / 2);
-    int mid_w = floor(k->dims[1] / 2);
+    int mid_h = floor(k->dims[1] / 2);
+    int mid_w = floor(k->dims[2] / 2);
     int out_channels = k->dims[0];
     int kernel_size = k->dims[1] * k->dims[2];
     int out_shape[4] = {t->dims[0], out_channels, ho, wo};
@@ -278,12 +275,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
                         int k_ptr = oc * kernel_size;
                         for (int kh=h-mid_h; kh <= h + mid_h; kh++){
                             for (int kw=w-mid_w; kw <= w + mid_w; kw++){
-                                res += k->data[k_ptr] * t->data[
-                                    (n * t->dims[1] * t->dims[2] * t->dims[3]) +
-                                    (c * t->dims[2] * t->dims[3]) +
-                                    (kh * t->dims[3]) + 
-                                    kw
-                                    ]; 
+                                res += k->data[k_ptr] * getindex(t, n, c, kh, kw);
                             }
                             k_ptr += 1;
                         }

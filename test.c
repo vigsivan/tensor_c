@@ -13,7 +13,7 @@ bool maxpool2d_stride1_padding0();
 bool maxpool2d_stride2_padding0();
 bool maxpool2d_stride1_padding1();
 bool linear_layer_test();
-bool conv2d_mean_kernel();
+bool conv2d_3x3mean_kernel();
 
 int main(){
     srand(42);
@@ -22,7 +22,7 @@ int main(){
     printf("maxpool2d_stride2_padding0: %s\n", maxpool2d_stride2_padding0() ? "PASSED" : "FAILED");
     printf("maxpool2d_stride1_padding1: %s\n", maxpool2d_stride1_padding1() ? "PASSED" : "FAILED");
     printf("linear_layer_test: %s\n", linear_layer_test() ? "PASSED" : "FAILED");
-    printf("conv_mean_kernel: %s\n", conv2d_mean_kernel() ? "PASSED" : "FAILED");
+    printf("conv2d_3x3mean_kernel: %s\n", conv2d_3x3mean_kernel() ? "PASSED" : "FAILED");
     printf("Done.\n");
 }
 
@@ -157,7 +157,7 @@ bool maxpool2d_stride1_padding1(){
 /*
  * Conv2d tests
  */
-bool conv2d_mean_kernel() {
+bool conv2d_3x3mean_kernel() {
     int image_shape[4] = {1, 1, 5, 5};
     float image_data[25] = { 
         1,2,3,4,5,
@@ -185,9 +185,6 @@ bool conv2d_mean_kernel() {
     };
 
     bool passed = check_equals(out->data, expected, 9);
-
-    printf("Output array:\n");
-    print_2d(out);
 
     free_tensor(image);
     free_tensor(k);
