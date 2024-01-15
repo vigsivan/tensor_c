@@ -205,7 +205,7 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
             for (int h=laddh; h < t->dims[2] - raddh; h+=stride){
                 for (int w=laddw; w < t->dims[3] - raddw; w+=stride){
                     float max_val = -INFINITY;
-                    for (int kh=h-laddh; kh <= h + raddw; kh++){
+                    for (int kh=h-laddh; kh <= h + raddh; kh++){
                         for (int kw=w-laddw; kw <= w + raddw; kw++){
                             if (getindex(t,n,c,kh,kw) > max_val){
                                 max_val = getindex(t,n,c,kh,kw);
@@ -261,6 +261,21 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
 
     int mid_h = floor(k->dims[1] / 2);
     int mid_w = floor(k->dims[2] / 2);
+
+    int laddh, raddh, laddw, raddw;
+    if (k->dims[1] % 2 == 0) {
+        laddh = mid_h, raddh = mid_h-1;
+    }
+    else {
+        laddh = mid_h, raddh = mid_h;
+    }
+    if (k->dims[2] % 2 == 0) {
+        laddw = mid_w, raddw = mid_w-1;
+    }
+    else {
+        laddw = mid_w, raddw = mid_w;
+    }
+
     int out_channels = k->dims[0];
     int kernel_size = k->dims[1] * k->dims[2];
     int out_shape[4] = {t->dims[0], out_channels, ho, wo};
@@ -268,18 +283,19 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
     int out_ptr = 0;
     for (int n=0; n < t->dims[0]; n++){
         for (int oc=0; oc < out_channels; oc++){
-            for (int h=mid_h; h < t->dims[2]-mid_h; h+=stride){
-                for (int w=mid_w; w < t->dims[3]-mid_w; w+=stride){
+            for (int h=laddh; h < t->dims[2]-raddh; h+=stride){
+                for (int w=laddw; w < t->dims[3]-raddw; w+=stride){
                     float res = 0;
                     for (int c = 0; c < t->dims[1]; c++){
                         int k_ptr = oc * kernel_size;
-                        for (int kh=h-mid_h; kh <= h + mid_h; kh++){
-                            for (int kw=w-mid_w; kw <= w + mid_w; kw++){
+                        for (int kh=h-raddh; kh <= h + raddh; kh++){
+                            for (int kw=w-raddw; kw <= w + raddw; kw++){
                                 res += k->data[k_ptr] * getindex(t, n, c, kh, kw);
                             }
                             k_ptr += 1;
                         }
                     }
+                    // printf("Setting %f at %d\n", res, out_ptr);
                     out->data[out_ptr] = res;
                     out_ptr += 1;
                 }

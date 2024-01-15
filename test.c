@@ -14,6 +14,7 @@ bool maxpool2d_stride2_padding0();
 bool maxpool2d_stride1_padding1();
 bool linear_layer_test();
 bool conv2d_3x3mean_kernel();
+bool conv2d_2x2mean_kernel();
 
 int main(){
     srand(42);
@@ -23,6 +24,7 @@ int main(){
     printf("maxpool2d_stride1_padding1: %s\n", maxpool2d_stride1_padding1() ? "PASSED" : "FAILED");
     printf("linear_layer_test: %s\n", linear_layer_test() ? "PASSED" : "FAILED");
     printf("conv2d_3x3mean_kernel: %s\n", conv2d_3x3mean_kernel() ? "PASSED" : "FAILED");
+    printf("conv2d_2x2mean_kernel: %s\n", conv2d_2x2mean_kernel() ? "PASSED" : "FAILED");
     printf("Done.\n");
 }
 
@@ -191,6 +193,42 @@ bool conv2d_3x3mean_kernel() {
     free_tensor(out);
     return passed;
 }
+
+bool conv2d_2x2mean_kernel() {
+    int image_shape[4] = {1, 1, 5, 5};
+    float image_data[25] = { 
+        1,2,3,4,5,
+        2,3,4,5,6,
+        3,4,5,6,7,
+        4,5,6,7,8,
+        5,6,7,8,9
+    };
+
+    tensor_fp32 *image = init_with_data(4, image_shape, image_data);
+
+    // create image 2x2 mean kernel
+    int kernel_shape[3] = {1, 2,2};
+    tensor_fp32 *k = init_with_zeros(3, kernel_shape);
+    scalarop_inplace_fp32add(k, 1);
+    scalarop_inplace_fp32mul(k, (float) 1/4);
+
+    tensor_fp32* out = op_fp32conv2d(image, k, 1, 0);
+
+    float expected[16] = {
+        2,3,4,5,
+        3,4,5,6,
+        4,5,6,7,
+        5,6,7,8
+    };
+
+    bool passed = check_equals(out->data, expected, 16);
+
+    free_tensor(image);
+    free_tensor(k);
+    free_tensor(out);
+    return passed;
+}
+
     
 
 
