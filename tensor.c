@@ -144,6 +144,91 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
  * Window Operations
  **************************************************/
 
+/** Implements 2D avgpool
+ * output tensor has shape (N, 1, ho, wo) (output shape depends on padding)
+ * if padding is non-zero, each side is padded with negative infinity for padding.
+ * Note: we don't check if the padding is valid (i.e. if you supply a large value
+ * for padding, then the output might contain negative infinity values).
+ * t: input tensor with shape (N, Cin, H, W)
+ * k: kernel tensor with 2d shape (h, w)
+ * stride: stride of avgpool
+ * padding: padding of avgpool
+ */
+tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding){
+    if(t->ndims != 4){
+        printf("Error: op_fp32maxpool2d expects 4d input tensor");
+        exit(1);
+    }
+    if (padding < 0){
+        printf("Error: expecting padding to be gte 0. Got %d", padding);
+        exit(1);
+    }
+
+
+    int ho = floor((t->dims[2] + 2*padding - (kh-1)-1)/stride + 1);
+    int wo = floor((t->dims[3] + 2*padding - (kw-1)-1)/stride + 1);
+
+    int mid_h = floor(kh / 2);
+    int mid_w = floor(kw / 2);
+
+    /* Get the mid point of the kernel
+     * if kernel size is even, then we decide the midpoint
+     * to be right of the center. ladddh and raddh are the
+     * number of elements to the left and right of the center
+     * we will use to compute the maxpool in the h dimension.
+     * Similarly for the w dimension.
+     */
+
+    int laddh, raddh, laddw, raddw;
+    if (kh % 2 == 0) {
+        laddh = mid_h, raddh = mid_h - 1;
+    }
+    else {
+        laddh = mid_h, raddh = mid_h;
+    }
+    if (kw % 2 == 0) {
+        laddw = mid_w, raddw = mid_w - 1;
+    }
+    else {
+        laddw = mid_w, raddw = mid_w;
+    }
+
+    int shape[4] = {t->dims[0], t->dims[1], ho, wo};
+    tensor_fp32* out = init_tensor(4, shape);
+
+    if (padding > 0){
+        t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
+    }
+
+    for (int n=0; n<t->dims[0]; n++){
+        for (int c=0; c < t-> dims[1]; c++) {
+            for (int h=laddh; h < t->dims[2] - raddh; h+=stride){
+                for (int w=laddw; w < t->dims[3] - raddw; w+=stride){
+                    float agg = 0.;
+                    int count = 0;
+                    for (int kh=h-laddh; kh <= h + raddh; kh++){
+                        for (int kw=w-laddw; kw <= w + raddw; kw++){
+                            agg += getindex(t,n,c,kh,kw);
+                            count += 1;
+                        }
+                    }
+
+                    float avg = agg / count;
+                    int hindex = floor((h-laddh)/stride);
+                    int windex = floor((w-laddw)/stride);
+                    setindex(out, avg, n, c, hindex, windex);
+                }
+            }
+        }
+    }
+    
+    if (padding > 0){
+        free_tensor(t);
+    } 
+    return out;
+}
+
+
 /** Implements 2D maxpool
  * output tensor has shape (N, 1, ho, wo) (output shape depends on padding)
  * if padding is non-zero, each side is padded with negative infinity for padding.
@@ -372,6 +457,14 @@ tensor_fp32* op_fp32relu(tensor_fp32* t){
         else{
             out->data[i] = t->data[i];
         }
+    }
+    return out;
+}
+
+tensor_fp32* op_fp32sigmoid(tensor_fp32* t){
+    tensor_fp32* out = init_tensor(t->ndims, t->dims);
+    for (int i=0; i < t->size; i++){
+        out->data[i] = 1 / (1 + (float) exp(-1 * i));
     }
     return out;
 }

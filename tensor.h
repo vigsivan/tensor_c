@@ -44,6 +44,7 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b);
  */
 tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int padding);
 tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding);
+tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding);
 
 /*
  * Shape Operations
@@ -55,6 +56,7 @@ tensor_fp32* op_fp32transposelinear(tensor_fp32* t);
  * Activation Functions
  */
 tensor_fp32* op_fp32relu(tensor_fp32* t);
+tensor_fp32* op_fp32sigmoid(tensor_fp32* t);
 
 
 /*
