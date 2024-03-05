@@ -340,10 +340,6 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
     int ho = floor((t->dims[2] + 2 * padding - (k->dims[1]-1)-1)/stride + 1);
     int wo = floor((t->dims[3] + 2 * padding - (k->dims[2]-1)-1)/stride + 1);
 
-    if (padding > 0) {
-        t = scalarop_fp32pad2d(t, padding, padding, (float) 0);
-    }
-
     int mid_h = floor(k->dims[1] / 2);
     int mid_w = floor(k->dims[2] / 2);
 
@@ -360,6 +356,11 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
     else {
         laddw = mid_w, raddw = mid_w;
     }
+
+    if (padding > 0) {
+        t = scalarop_fp32pad2d(t, padding, padding, (float) 0);
+    }
+
 
     int out_channels = k->dims[0];
     int kernel_size = k->dims[1] * k->dims[2];

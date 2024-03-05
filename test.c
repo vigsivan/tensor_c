@@ -16,6 +16,7 @@ bool linear_layer_test();
 bool conv2d_3x3mean_kernel();
 bool conv2d_2x2mean_kernel();
 bool avgpool2d_stride1_padding0();
+bool avgpool2d_stride2_padding0();
 
 int main(){
     srand(42);
@@ -23,10 +24,16 @@ int main(){
     printf("maxpool2d_stride1_padding0: %s\n", maxpool2d_stride1_padding0() ? "PASSED" : "FAILED");
     printf("maxpool2d_stride2_padding0: %s\n", maxpool2d_stride2_padding0() ? "PASSED" : "FAILED");
     printf("maxpool2d_stride1_padding1: %s\n", maxpool2d_stride1_padding1() ? "PASSED" : "FAILED");
-    printf("avgpool2d_stride1_padding0: %s\n", avgpool2d_stride1_padding0() ? "PASSED" : "FAILED");
+
+
     printf("linear_layer_test: %s\n", linear_layer_test() ? "PASSED" : "FAILED");
+
     printf("conv2d_3x3mean_kernel: %s\n", conv2d_3x3mean_kernel() ? "PASSED" : "FAILED");
     printf("conv2d_2x2mean_kernel: %s\n", conv2d_2x2mean_kernel() ? "PASSED" : "FAILED");
+
+    printf("avgpool2d_stride1_padding0: %s\n", avgpool2d_stride1_padding0() ? "PASSED" : "FAILED");
+    printf("avgpool2d_stride2_padding0: %s\n", avgpool2d_stride2_padding0() ? "PASSED" : "FAILED");
+
     printf("Done.\n");
 }
 
@@ -153,6 +160,34 @@ bool maxpool2d_stride1_padding1(){
         passed = false;
     }
     
+    free_tensor(a);
+    free_tensor(out);
+
+    return passed;
+}
+
+bool avgpool2d_stride2_padding0(){
+    int image_shape[4] = {1, 1, 4, 4};
+    float image_data[16] = { 
+        1,2,3,4,
+        2,3,4,1,
+        3,4,2,1,
+        4,1,2,3
+    };
+    float expected_stride2[4] = { 
+        2,3,
+        3,2
+    };
+
+    tensor_fp32 *a = init_with_data(4, image_shape, image_data);
+    tensor_fp32* out = op_fp32avgpool2d(a, 2,2, 2, 0);
+
+    bool passed = true;
+
+    if (!check_equals(out->data, expected_stride2, 4)){
+        passed = false;
+    }
+
     free_tensor(a);
     free_tensor(out);
 
