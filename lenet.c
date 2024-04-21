@@ -15,8 +15,13 @@ typedef struct {
     tensor_fp32 *l2b;
 } lenet;
 
+typedef struct {
+    int lbl;
+    tensor_fp32 *data;
+} mnist_image;
+
 lenet* load_lenet(const char* checkpoint){
-    int nmodules[1];
+    int nmodules;
     int ndims[10];
     int EXPECTED_NDIMS[] = {4, 1, 4, 1, 2, 1, 2, 1, 2, 1};
     tensor_fp32* tensors[10];
@@ -26,24 +31,21 @@ lenet* load_lenet(const char* checkpoint){
         fprintf(stderr, "Couldn't open file %s\n", checkpoint);
         exit(EXIT_FAILURE); 
     }
-    fread(nmodules, sizeof(int), 1, file);
-    if (*nmodules != 10){
-        fprintf(stderr, "Number of modules does not match (got %i, expected 10).\n", *nmodules);
+    fread(&nmodules, sizeof(int), 1, file);
+    if (nmodules != 10){
+        fprintf(stderr, "Number of modules does not match (got %i, expected 10).\n", nmodules);
         exit(EXIT_FAILURE); 
 
     }
 
     for (int i = 0; i < 10; i++){
         fread(ndims + i, sizeof(int), 1, file);
-    }
-
-    for (int i = 0; i < 10; i++){
         if (ndims[i] != EXPECTED_NDIMS[i]){
             fprintf(stderr, "Number of dimensions for module %i does not match (got %i, expected %i).\n", i, ndims[i], EXPECTED_NDIMS[i]);
             exit(EXIT_FAILURE); 
         }
     }
-    
+   
     // initialize tensors
     for (int i = 0; i < 10; i++){
         int ndims_i = ndims[i];
@@ -59,7 +61,7 @@ lenet* load_lenet(const char* checkpoint){
         fread(t->data, sizeof(float) * t->size, 1, file);
     }
 
-    printf("Successfully loaded file with expected number of modules\n");
+    printf("Successfully loaded checkpoint `%s' with expected number of modules\n", checkpoint);
     fclose(file);
 
     lenet* net = malloc(sizeof(lenet));
@@ -78,21 +80,29 @@ lenet* load_lenet(const char* checkpoint){
     return net;
 }
 
-// void lenet_free(lenet *net){
-//     free(net->c1);
-//     free(net->c2);
-//     free(net->d1);
-//     free(net->d2);
-//     free(net->d3);
-//     free(net);
-// }
-//
-
-
-void lenet_forward(lenet *net, tensor_fp32 *input){
-
+mnist_image* load_mnist(char* mnist_path){
+    FILE* file = fopen(mnist_path, "rb");     
+    int dims[4] = { 1, 1, 28, 28 };
+    tensor_fp32* data = init_tensor(4, dims);
+    if (!file) { 
+        fprintf(stderr, "Couldn't open file %s\n", mnist_path);
+        exit(EXIT_FAILURE); 
+    }
+    int label;
+    fread(&label, sizeof(int), 1, file);
+    printf("Read mnist file with label %i\n", label);
+    fread(data->data, sizeof(float)*28*28, 1, file);
+    mnist_image* image = malloc(sizeof(mnist_image));
+    image->lbl = label;
+    image->data = data;
+    return image;
 }
 
+
+int lenet_forward(lenet *net, tensor_fp32 *input){
+    tensor_fp32* x = op_fp32conv2d(input, net->c1w, 1, 2);
+    return 0;
+}
 
 void error_usage() {
     fprintf(stderr, "Usage:   lenet <checkpoint> <mnist_folder>\n");
@@ -111,5 +121,12 @@ void main(int argc, char** argv) {
 
     checkpoint_path = argv[1];
     mnist_folder = argv[2];
-    load_lenet(checkpoint_path);
+    lenet* net = load_lenet(checkpoint_path);
+    mnist_image* mi = load_mnist(mnist_folder);
+    int pred = lenet_forward(net, mi->data);
+    if (pred != mi->lbl){
+        printf("Incorrect prediction: Predicted %i, but label is %i", pred, mi->lbl);
+    }
+    // print_linear(net->c0w);
+    // print_linear(net->c1w);
 }

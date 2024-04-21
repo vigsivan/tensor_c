@@ -70,3 +70,4 @@ void scalarop_inplace_fp32add(tensor_fp32* t, float scalar);
  */
 void print_2d(tensor_fp32* t);
 void print_linear(tensor_fp32* t);
+void print_raw(tensor_fp32* t);
