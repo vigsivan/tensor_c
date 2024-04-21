@@ -1,6 +1,9 @@
 CC = gcc
 
-all: test
+all: lenet
+
+lenet: lenet.c tensor.o 
+	$(CC) -o lenet lenet.c tensor.o -lm
 
 test: test.c tensor.o
 	$(CC) -o main test.c tensor.o -lm
