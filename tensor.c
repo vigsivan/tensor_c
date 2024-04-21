@@ -318,18 +318,17 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
  * output tensor has shape (N, 1, ho, wo) (output shape depends on padding)
  * this function is probably really inefficient.
  * t: input tensor with shape (N, Cin, H, W)
- * w: weight kernel tensor with 2d shape (Cout, Cin, h, w)
- * b: bias tensor with 2d shape (Cout)
+ * k: kernel tensor with 2d shape (h, w)
  * stride: stride of convolution
  * padding: padding of convolution. Note: only 0-padding is supported
  */
-tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b, int stride, int padding){
+tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int padding){
     if(t->ndims != 4){
         printf("Error: op_fp32conv2d expects 4d input tensor");
         exit(1);
     }
-    if(w->ndims != 3){
-        printf("Error: op_fp32conv2d expects kernel with 3dims (c,h,w). Got %d", w->ndims);
+    if(k->ndims != 3){
+        printf("Error: op_fp32conv2d expects kernel with 3dims (c,h,w). Got %d", k->ndims);
         exit(1);
     }
     if (padding < 0){
@@ -338,20 +337,20 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b, int s
     }
     
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
-    int ho = floor((t->dims[2] + 2 * padding - (w->dims[1]-1)-1)/stride + 1);
-    int wo = floor((t->dims[3] + 2 * padding - (w->dims[2]-1)-1)/stride + 1);
+    int ho = floor((t->dims[2] + 2 * padding - (k->dims[1]-1)-1)/stride + 1);
+    int wo = floor((t->dims[3] + 2 * padding - (k->dims[2]-1)-1)/stride + 1);
 
-    int mid_h = floor(w->dims[1] / 2);
-    int mid_w = floor(w->dims[2] / 2);
+    int mid_h = floor(k->dims[1] / 2);
+    int mid_w = floor(k->dims[2] / 2);
 
     int laddh, raddh, laddw, raddw;
-    if (w->dims[1] % 2 == 0) {
+    if (k->dims[1] % 2 == 0) {
         laddh = mid_h, raddh = mid_h-1;
     }
     else {
         laddh = mid_h, raddh = mid_h;
     }
-    if (w->dims[2] % 2 == 0) {
+    if (k->dims[2] % 2 == 0) {
         laddw = mid_w, raddw = mid_w-1;
     }
     else {
@@ -363,8 +362,8 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b, int s
     }
 
 
-    int out_channels = w->dims[0];
-    int kernel_size = w->dims[1] * w->dims[2];
+    int out_channels = k->dims[0];
+    int kernel_size = k->dims[1] * k->dims[2];
     int out_shape[4] = {t->dims[0], out_channels, ho, wo};
     tensor_fp32* out = init_tensor(4, out_shape);
     int out_ptr = 0;
@@ -377,13 +376,13 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b, int s
                         int k_ptr = oc * kernel_size;
                         int hstart, wstart;
                         // TODO: remove this, quite ugly
-                        if (w->dims[1]%2 == 0){
+                        if (k->dims[1]%2 == 0){
                             hstart = h - raddh - 1;
                         }
                         else{
                             hstart = h - raddh;
                         }
-                        if (w->dims[2]%2 == 0){
+                        if (k->dims[2]%2 == 0){
                             wstart = w - raddw - 1;
                         }
                         else{
@@ -392,7 +391,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b, int s
                         
                         for (int kh=hstart; kh <= h + raddh; kh++){
                             for (int kw=wstart; kw <= w + raddw; kw++){
-                                res += w->data[k_ptr] * getindex(t, n, c, kh, kw);
+                                res += k->data[k_ptr] * getindex(t, n, c, kh, kw);
                             }
                             k_ptr += 1;
                         }

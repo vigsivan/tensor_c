@@ -100,6 +100,7 @@ mnist_image* load_mnist(char* mnist_path){
 
 
 int lenet_forward(lenet *net, tensor_fp32 *input){
+    // FIXME: conv2d needs to be re-implemented to allow for a bias term
     tensor_fp32* x = op_fp32conv2d(input, net->c1w, 1, 2);
     return 0;
 }
