@@ -15,6 +15,20 @@ typedef struct {
     tensor_fp32 *l2b;
 } lenet;
 
+void lenet_free(lenet* net){
+    free_tensor(net->c0w);
+    free_tensor(net->c0b);
+    free_tensor(net->c1w);
+    free_tensor(net->c1b);
+    free_tensor(net->l0w);
+    free_tensor(net->l0b);
+    free_tensor(net->l1w);
+    free_tensor(net->l1b);
+    free_tensor(net->l2w);
+    free_tensor(net->l2b);
+    free(net);
+}
+
 typedef struct {
     int lbl;
     tensor_fp32 *data;
@@ -130,4 +144,5 @@ void main(int argc, char** argv) {
     }
     // print_linear(net->c0w);
     // print_linear(net->c1w);
+    lenet_free(net);
 }
