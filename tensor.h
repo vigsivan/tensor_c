@@ -1,6 +1,19 @@
 #pragma once
 #define getindex(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
 #define setindex(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
+#define assertndims(t,d) if(t->ndims != d) { fprintf(stderr, "Tensor does not have expected number of dims (has %d, got %d).\n", t->ndims, d); exit(EXIT_FAILURE); }
+#define assertsameshape(t1,t2) \
+    if(t1->ndims != t2->ndims) { \
+        fprintf(stderr, "Tensors do not have the same number or dims (one has %d, the other %d).\n", t1->ndims, t2->ndims); \
+        exit(EXIT_FAILURE); \
+    }\
+    for(int i=0; i<t1->ndims; i++){ \
+        if(t1->dims[i] != t2->dims[i]){ \
+            fprintf(stderr, "Error: dims of tensors are not equal in axis %i (one has %d, the other %d)\n", i, t1->dims[i], t2->dims[i]); \
+            exit(EXIT_FAILURE); \
+        } \
+    }
+
 
 typedef struct tensor_fp32{
 	int size;
