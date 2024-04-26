@@ -7,7 +7,7 @@
 /**************************************************
  * Constructor and destructor
  **************************************************/
-tensor_fp32* init_with_data(int ndims, int* dims, float* data){
+tensor_fp32* init_tensor(int ndims, int* dims, float* data){
     if(dims == NULL){
         printf("Error: dims is NULL\n");
         exit(1);
@@ -31,22 +31,6 @@ tensor_fp32* init_with_data(int ndims, int* dims, float* data){
         }
     }
     return t;
-}
-
-tensor_fp32* init_with_zeros(int ndims, int* dims){
-    return init_with_data(ndims, dims, NULL);
-}
-
-tensor_fp32* init_with_random(int ndims, int* dims){
-    tensor_fp32* ret = init_with_data(ndims, dims, NULL);
-	for (int i = 0; i < ret->size; i++) {
-		ret->data[i] = (float)rand() / RAND_MAX;
-	}
-	return ret;
-}
-
-tensor_fp32* init_tensor(int ndims, int* dims){
-    return init_with_data(ndims, dims, NULL);
 }
 
 void free_tensor(tensor_fp32* t){
@@ -103,7 +87,7 @@ void op_fp32setindex(tensor_fp32* t, float val, int ndims, ...){
  **************************************************/
 
 tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar){
-	tensor_fp32* t2 = init_tensor(t->ndims, t->dims);
+	tensor_fp32* t2 = init_tensor(t->ndims, t->dims, NULL);
 	int size = 1;
 	for (int i = 0; i < t->ndims; i++) {
 		size *= t->dims[i];
@@ -121,7 +105,7 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
         exit(1);
     }
     int new_shape[4] =  {t->dims[0],t->dims[1],(padh*2)+t->dims[2],(padw*2)+t->dims[3]};
-    tensor_fp32* padded = init_with_zeros(4, new_shape);
+    tensor_fp32* padded = init_tensor(4, new_shape, NULL);
     scalarop_inplace_fp32add(padded, padval);
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c<t->dims[1]; c++){
@@ -194,7 +178,7 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
     }
 
     int shape[4] = {t->dims[0], t->dims[1], ho, wo};
-    tensor_fp32* out = init_tensor(4, shape);
+    tensor_fp32* out = init_tensor(4, shape, NULL);
 
     if (padding > 0){
         t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
@@ -279,7 +263,7 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
     }
 
     int shape[4] = {t->dims[0], t->dims[1], ho, wo};
-    tensor_fp32* out = init_tensor(4, shape);
+    tensor_fp32* out = init_tensor(4, shape, NULL);
 
     if (padding > 0){
         t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
@@ -370,7 +354,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
     int out_channels = k->dims[0];
     int kernel_size = k->dims[1] * k->dims[2];
     int out_shape[4] = {t->dims[0], out_channels, ho, wo};
-    tensor_fp32* out = init_tensor(4, out_shape);
+    tensor_fp32* out = init_tensor(4, out_shape, NULL);
     int out_ptr = 0;
     for (int n=0; n < t->dims[0]; n++){
         for (int oc=0; oc < out_channels; oc++){
@@ -430,7 +414,7 @@ tensor_fp32* op_fp32flatten(tensor_fp32* t){
     for (int i=1; i < t->ndims; i++){
         new_shape[1] *= t->dims[i];
     }
-    tensor_fp32* out = init_tensor(2, new_shape);
+    tensor_fp32* out = init_tensor(2, new_shape, NULL);
     out->data = t->data;
     return out;
 }
@@ -441,7 +425,7 @@ tensor_fp32* op_fp32transposelinear(tensor_fp32* t){
         exit(1);
     }
     int new_shape[2] = {t->dims[1], t->dims[0]};
-    tensor_fp32* out = init_tensor(2, new_shape);
+    tensor_fp32* out = init_tensor(2, new_shape, NULL);
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < t->dims[1]; c++){
             setindex(out, getindex(t, n, c), c, n);
@@ -455,7 +439,7 @@ tensor_fp32* op_fp32transposelinear(tensor_fp32* t){
  **************************************************/
 
 tensor_fp32* op_fp32relu(tensor_fp32* t){
-    tensor_fp32* out = init_tensor(t->ndims, t->dims);
+    tensor_fp32* out = init_tensor(t->ndims, t->dims, NULL);
     for (int i=0; i < t->size; i++){
         if (t->data[i] < 0){
             out->data[i] = 0;
@@ -468,7 +452,7 @@ tensor_fp32* op_fp32relu(tensor_fp32* t){
 }
 
 tensor_fp32* op_fp32sigmoid(tensor_fp32* t){
-    tensor_fp32* out = init_tensor(t->ndims, t->dims);
+    tensor_fp32* out = init_tensor(t->ndims, t->dims, NULL);
     for (int i=0; i < t->size; i++){
         out->data[i] = 1 / (1 + (float) exp(-1 * i));
     }
@@ -506,7 +490,7 @@ tensor_fp32* op_fp32add(tensor_fp32* l, tensor_fp32* r){
             exit(1);
         }
     }
-    tensor_fp32 *t = init_tensor(l->ndims, l->dims);
+    tensor_fp32 *t = init_tensor(l->ndims, l->dims, NULL);
     int size = 1;
     for(int i=0; i<l->ndims; i++){
     size *= l->dims[i];
@@ -529,7 +513,7 @@ tensor_fp32* op_fp32sub(tensor_fp32* l, tensor_fp32* r){
         exit(1);
     }
     }
-    tensor_fp32 *t = init_tensor(l->ndims, l->dims);
+    tensor_fp32 *t = init_tensor(l->ndims, l->dims, NULL);
     int size = 1;
     for(int i=0; i<l->ndims; i++){
     size *= l->dims[i];
@@ -572,7 +556,7 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
         exit(1);
     }
     int new_shape[2] = {t->dims[0], w_t->dims[1]};
-    tensor_fp32* out = init_tensor(2, new_shape);
+    tensor_fp32* out = init_tensor(2, new_shape, NULL);
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < w_t->dims[1]; c++){
             float res = 0;

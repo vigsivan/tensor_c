@@ -44,15 +44,15 @@ int main(){
 bool linear_layer_test(){
     int input_shape[2] = {1, 4};
     float input_data[4] = {1,2,3,4};
-    tensor_fp32 *input = init_with_data(2, input_shape, input_data);
+    tensor_fp32 *input = init_tensor(2, input_shape, input_data);
 
     int weight_shape[2] = {2, 4};
     float weight_data[8] = {1,2,3,4,5,6,7,8};
-    tensor_fp32 *weight = init_with_data(2, weight_shape, weight_data);
+    tensor_fp32 *weight = init_tensor(2, weight_shape, weight_data);
 
     int bias_shape[1] = {2};
     float bias_data[2] = {1,2};
-    tensor_fp32 *bias = init_with_data(1, bias_shape, bias_data);
+    tensor_fp32 *bias = init_tensor(1, bias_shape, bias_data);
 
     tensor_fp32 *out = op_fp32linear(input, weight, bias);
 
@@ -89,7 +89,7 @@ bool maxpool2d_stride1_padding0(){
         4,4,3
     };
 
-    tensor_fp32 *a = init_with_data(4, image_shape, image_data);
+    tensor_fp32 *a = init_tensor(4, image_shape, image_data);
     tensor_fp32* out = op_fp32maxpool2d(a, 2,2, 1, 0);
 
     bool passed = true;
@@ -121,7 +121,7 @@ bool maxpool2d_stride2_padding0(){
 
     bool passed = true;
 
-    tensor_fp32 *a = init_with_data(4, image_shape, image_data);
+    tensor_fp32 *a = init_tensor(4, image_shape, image_data);
     tensor_fp32* out = op_fp32maxpool2d(a, 2,2, 2, 0);
 
     if (!check_equals(out->data, expected_stride2, 4)){
@@ -153,7 +153,7 @@ bool maxpool2d_stride1_padding1(){
 
     bool passed = true;
 
-    tensor_fp32 *a = init_with_data(4, image_shape, image_data);
+    tensor_fp32 *a = init_tensor(4, image_shape, image_data);
     tensor_fp32* out = op_fp32maxpool2d(a, 2,2, 1, 1);
 
     if (!check_equals(out->data, expected_stride1, 16)){
@@ -179,7 +179,7 @@ bool avgpool2d_stride2_padding0(){
         3,2
     };
 
-    tensor_fp32 *a = init_with_data(4, image_shape, image_data);
+    tensor_fp32 *a = init_tensor(4, image_shape, image_data);
     tensor_fp32* out = op_fp32avgpool2d(a, 2,2, 2, 0);
 
     bool passed = true;
@@ -208,7 +208,7 @@ bool avgpool2d_stride1_padding0(){
         3,2.25,2
     };
 
-    tensor_fp32 *a = init_with_data(4, image_shape, image_data);
+    tensor_fp32 *a = init_tensor(4, image_shape, image_data);
     tensor_fp32* out = op_fp32avgpool2d(a, 2,2, 1, 0);
 
     bool passed = true;
@@ -237,11 +237,11 @@ bool conv2d_3x3mean_kernel() {
         5,6,7,8,9
     };
 
-    tensor_fp32 *image = init_with_data(4, image_shape, image_data);
+    tensor_fp32 *image = init_tensor(4, image_shape, image_data);
 
     // create image 3x3 mean kernel
     int kernel_shape[3] = {1, 3,3};
-    tensor_fp32 *k = init_with_zeros(3, kernel_shape);
+    tensor_fp32 *k = init_tensor(3, kernel_shape, NULL);
     scalarop_inplace_fp32add(k, 1);
     scalarop_inplace_fp32mul(k, (float) 1/9);
 
@@ -272,11 +272,11 @@ bool conv2d_2x2mean_kernel() {
         5,6,7,8,9
     };
 
-    tensor_fp32 *image = init_with_data(4, image_shape, image_data);
+    tensor_fp32 *image = init_tensor(4, image_shape, image_data);
 
     // create image 2x2 mean kernel
     int kernel_shape[3] = {1, 2,2};
-    tensor_fp32 *k = init_with_zeros(3, kernel_shape);
+    tensor_fp32 *k = init_tensor(3, kernel_shape, NULL);
     scalarop_inplace_fp32add(k, 1);
     scalarop_inplace_fp32mul(k, (float) 1/4);
 

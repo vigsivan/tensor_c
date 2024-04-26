@@ -67,7 +67,7 @@ lenet* load_lenet(const char* checkpoint){
         for(int j=0; j<ndims_i; j++){
             fread(dims + j, sizeof(int), 1, file);
         }
-        tensors[i] = init_tensor(ndims_i, dims);
+        tensors[i] = init_tensor(ndims_i, dims, NULL);
     }
 
     for (int i = 0; i < 10; i++){
@@ -97,7 +97,7 @@ lenet* load_lenet(const char* checkpoint){
 mnist_image* load_mnist(char* mnist_path){
     FILE* file = fopen(mnist_path, "rb");     
     int dims[4] = { 1, 1, 28, 28 };
-    tensor_fp32* data = init_tensor(4, dims);
+    tensor_fp32* data = init_tensor(4, dims, NULL);
     if (!file) { 
         fprintf(stderr, "Couldn't open file %s\n", mnist_path);
         exit(EXIT_FAILURE); 
@@ -126,7 +126,7 @@ void error_usage() {
 }
 
 
-void main(int argc, char** argv) {
+int main(int argc, char** argv) {
     char* checkpoint_path = NULL;
     char* mnist_folder = NULL;
 

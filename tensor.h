@@ -13,10 +13,7 @@ typedef struct tensor_fp32{
 /*
  * Constructor and destructor
  */
-tensor_fp32* init_with_data(int ndims, int* dims, float* data);
-tensor_fp32* init_with_zeros(int ndims, int* dims);
-tensor_fp32* init_with_random(int ndims, int* dims);
-tensor_fp32* init_tensor(int ndims, int* dims);
+tensor_fp32* init_tensor(int ndims, int* dims, float* data);
 void free_tensor(tensor_fp32* t);
 
 /*
