@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include "tensor.h"
-#include <assert.h>
 
 /**************************************************
  * Constructor and destructor
@@ -324,10 +323,23 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
  * padding: padding of convolution. Note: only 0-padding is supported
  */
 tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int padding){
-    assertndims(t, 4);
-    assertndims(k, 4);
-    assert(padding >= 0);
-    assert(stride >= 0);
+    if(t->ndims != 4){
+        fprintf(stderr, "Error: op_fp32conv2d expects 4d input tensor");
+        exit(EXIT_FAILURE);
+    }
+    if(k->ndims != 4){
+        fprintf(stderr, "Error: op_fp32conv2d expects kernel with 3dims (c,h,w). Got %d", k->ndims);
+        exit(EXIT_FAILURE);
+    }
+    if (padding < 0){
+        fprintf(stderr, "Error: expecting padding to be gte 0. Got %d", padding);
+        exit(EXIT_FAILURE);
+    }
+    if (stride < 0){
+        fprintf(stderr, "Error: expecting stride to be gte 0. Got %d", stride);
+        exit(EXIT_FAILURE);
+    }
+
     
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
     int ho = floor((t->dims[2] + 2 * padding - (k->dims[1]-1)-1)/stride + 1);
@@ -507,7 +519,6 @@ tensor_fp32* op_fp32add(tensor_fp32* l, tensor_fp32* r){
 
 
 tensor_fp32* op_fp32sub(tensor_fp32* l, tensor_fp32* r){
-    assertndims(l, r->ndims);
     if(l->ndims != r->ndims){
     printf("Error: ndims of l and r are not equal\n");
     exit(1);
@@ -589,7 +600,10 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
  * if N > 1, then only the first batch is printed.
  */
 void print_2d(tensor_fp32* t){
-    assertndims(t, 4);
+    if(t->ndims != 4){
+        printf("Error: print_2d only works with tensors of shape (N, C, H, W)");
+        exit(1);
+    }
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < t->dims[1]; c++){
             printf("Batch %d Channel %d:\n", n, c);
