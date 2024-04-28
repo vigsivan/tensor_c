@@ -131,7 +131,6 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
             }
         }
     }
-    printf("Padding complete.\n");
     return padded;
 }
 
