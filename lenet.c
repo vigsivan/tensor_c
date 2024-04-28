@@ -1,6 +1,7 @@
 #include "tensor.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 typedef struct {
     tensor_fp32 *c0w;
@@ -114,9 +115,32 @@ mnist_image* load_mnist(char* mnist_path){
 
 
 int lenet_forward(lenet *net, tensor_fp32 *input){
-    // FIXME: conv2d needs to be re-implemented to allow for a bias term
-    // tensor_fp32* x = op_fp32conv2d(input, net->c1w, 1, 2);
-    return 0;
+    tensor_fp32* x = op_fp32conv2d(input, net->c0w, net->c0b, 1, 2);
+    x = op_fp32sigmoid(x);
+    x = op_fp32avgpool2d(x, 2, 2, 2, 0);
+    x = op_fp32conv2d(x, net->c1w, net->c1b, 1, 0);
+    x = op_fp32sigmoid(x);
+    x = op_fp32avgpool2d(x, 2, 2, 2, 0);
+    x = op_fp32flatten(x);
+
+    x = op_fp32linear(x, net->l0w, net->l0b);
+    x = op_fp32sigmoid(x);
+    x = op_fp32linear(x, net->l1w, net->l1b);
+    x = op_fp32sigmoid(x);
+    x = op_fp32linear(x, net->l2w, net->l2b);
+    x = op_fp32sigmoid(x);
+
+    // TODO: implement argmax for tensor_fp32
+    float max = -INFINITY;
+    int argmax = -1;
+    for(int i =0; i < x->size; i++){
+        if (x->data[i] > max){
+            max = x->data[i];
+            argmax = i;
+        }
+    }
+
+    return argmax;
 }
 
 void error_usage() {
