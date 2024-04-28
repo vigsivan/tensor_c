@@ -1,6 +1,8 @@
 #pragma once
 #define getindex(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
 #define setindex(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
+#define NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
+#define T(...) init_empty_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
 
 typedef struct tensor_fp32{
 	int size;
@@ -14,6 +16,7 @@ typedef struct tensor_fp32{
  * Constructor and destructor
  */
 tensor_fp32* init_tensor(int ndims, int* dims, float* data);
+tensor_fp32* init_empty_tensor(int ndims, ...);
 void free_tensor(tensor_fp32* t);
 
 /*
@@ -39,7 +42,7 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b);
 /*
  * Window Operations
  */
-tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int padding);
+tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int stride, int padding);
 tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding);
 tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int padding);
 

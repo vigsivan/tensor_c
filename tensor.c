@@ -33,6 +33,16 @@ tensor_fp32* init_tensor(int ndims, int* dims, float* data){
     return t;
 }
 
+tensor_fp32* init_empty_tensor(int ndims, ...){
+    va_list indexes;
+    va_start(indexes, ndims);
+    int dims[ndims];
+    for (int i = 0; i < ndims; i++){
+        dims[i] = va_arg(indexes, int);
+    }
+    return init_tensor(ndims, dims, NULL);
+}
+
 void free_tensor(tensor_fp32* t){
     free(t->data);
     free(t->dims);
@@ -104,13 +114,13 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
         printf("Error: scalarop_fp32pad2d expects 4d input tensor");
         exit(1);
     }
-    int new_shape[4] =  {t->dims[0],t->dims[1],(padh*2)+t->dims[2],(padw*2)+t->dims[3]};
-    tensor_fp32* padded = init_tensor(4, new_shape, NULL);
+    tensor_fp32* padded = T(t->dims[0],t->dims[1],(padh*2)+t->dims[2],(padw*2)+t->dims[3]);
     scalarop_inplace_fp32add(padded, padval);
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c<t->dims[1]; c++){
             for (int h=0; h<t->dims[2]; h++){
                 for (int w=0; w<t->dims[3]; w++){
+                    // setindex(padded,getindex(t, n, c, h, w), n, c, h+padh, w+padh) = ;
                     padded->data[
                         (n * padded->dims[1] * padded->dims[2] * padded->dims[3]) +
                         (c * padded->dims[2] * padded->dims[3]) +
@@ -121,6 +131,7 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
             }
         }
     }
+    printf("Padding complete.\n");
     return padded;
 }
 
@@ -177,8 +188,7 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
         laddw = mid_w, raddw = mid_w;
     }
 
-    int shape[4] = {t->dims[0], t->dims[1], ho, wo};
-    tensor_fp32* out = init_tensor(4, shape, NULL);
+    tensor_fp32* out = T(t->dims[0], t->dims[1], ho, wo);
 
     if (padding > 0){
         t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
@@ -262,8 +272,7 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
         laddw = mid_w, raddw = mid_w;
     }
 
-    int shape[4] = {t->dims[0], t->dims[1], ho, wo};
-    tensor_fp32* out = init_tensor(4, shape, NULL);
+    tensor_fp32* out = T(t->dims[0], t->dims[1], ho, wo);
 
     if (padding > 0){
         t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
@@ -299,20 +308,25 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
 /*
  * Implements 2D convolution (note: actually, correlation) naively.
  * This function is only implemented for a single filter.
- * output tensor has shape (N, 1, ho, wo) (output shape depends on padding)
+ * output tensor has shape (N, Cin, ho, wo) (output shape depends on padding)
  * this function is probably really inefficient.
  * t: input tensor with shape (N, Cin, H, W)
  * k: kernel tensor with 2d shape (Cout, Cin, h, w)
+ * b: kernel bias tensor with 2d shape (Cout, 1)
  * stride: stride of convolution
  * padding: padding of convolution. Note: only 0-padding is supported
  */
-tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int padding){
+tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int stride, int padding){
     if(t->ndims != 4){
         fprintf(stderr, "Error: op_fp32conv2d expects 4d input tensor");
         exit(EXIT_FAILURE);
     }
     if(k->ndims != 4){
-        fprintf(stderr, "Error: op_fp32conv2d expects kernel with 3dims (c,h,w). Got %d", k->ndims);
+        fprintf(stderr, "Error: op_fp32conv2d expects kernel with 4 dims (c,h,w). Got %d", k->ndims);
+        exit(EXIT_FAILURE);
+    }
+    if (k->dims[1] != t->dims[1]){
+        fprintf(stderr, "Error: op_fp32conv2d kernel second dimension to match number of channels in input tensor");
         exit(EXIT_FAILURE);
     }
     if (padding < 0){
@@ -324,77 +338,72 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, int stride, int paddi
         exit(EXIT_FAILURE);
     }
 
-    
-    // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
-    int ho = floor((t->dims[2] + 2 * padding - (k->dims[1]-1)-1)/stride + 1);
-    int wo = floor((t->dims[3] + 2 * padding - (k->dims[2]-1)-1)/stride + 1);
+    if (b != NULL && (b->ndims != 1 || b->dims[0] != k->dims[0])){
+        fprintf(stderr, "Error: Something is wrong with the bias term in conv2d");
+        exit(EXIT_FAILURE);
 
-    int mid_h = floor(k->dims[1] / 2);
-    int mid_w = floor(k->dims[2] / 2);
+    }
+
+    // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
+    int ho = floor((t->dims[2] + 2 * padding - (k->dims[2]-1)-1)/stride + 1);
+    int wo = floor((t->dims[3] + 2 * padding - (k->dims[3]-1)-1)/stride + 1);
+
+    int mid_h = floor(k->dims[2] / 2);
+    int mid_w = floor(k->dims[3] / 2);
 
     int laddh, raddh, laddw, raddw;
-    if (k->dims[1] % 2 == 0) {
-        laddh = mid_h, raddh = mid_h-1;
-    }
-    else {
-        laddh = mid_h, raddh = mid_h;
-    }
     if (k->dims[2] % 2 == 0) {
-        laddw = mid_w, raddw = mid_w-1;
+        laddh = mid_h; raddh = mid_h-1;
+        // laddh = mid_h; raddh = mid_h;
     }
     else {
-        laddw = mid_w, raddw = mid_w;
+        laddh = mid_h; raddh = mid_h;
+    }
+    if (k->dims[3] % 2 == 0) {
+        laddw = mid_w; raddw = mid_w-1;
+        // laddw = mid_w; raddw = mid_w;
+    }
+    else {
+        laddw = mid_w; raddw = mid_w;
     }
 
     if (padding > 0) {
         t = scalarop_fp32pad2d(t, padding, padding, (float) 0);
     }
 
-
+    int batch = t->dims[0];
     int out_channels = k->dims[0];
-    int kernel_size = k->dims[1] * k->dims[2];
-    int out_shape[4] = {t->dims[0], out_channels, ho, wo};
-    tensor_fp32* out = init_tensor(4, out_shape, NULL);
-    int out_ptr = 0;
-    for (int n=0; n < t->dims[0]; n++){
-        for (int oc=0; oc < out_channels; oc++){
-            for (int h=laddh; h < t->dims[2]-raddh; h+=stride){
-                for (int w=laddw; w < t->dims[3]-raddw; w+=stride){
-                    float res = 0;
-                    for (int c = 0; c < t->dims[1]; c++){
-                        int k_ptr = oc * kernel_size;
-                        int hstart, wstart;
-                        // TODO: remove this, quite ugly
-                        if (k->dims[1]%2 == 0){
-                            hstart = h - raddh - 1;
-                        }
-                        else{
-                            hstart = h - raddh;
-                        }
-                        if (k->dims[2]%2 == 0){
-                            wstart = w - raddw - 1;
-                        }
-                        else{
-                            wstart = w - raddw;
-                        }
-                        
-                        for (int kh=hstart; kh <= h + raddh; kh++){
-                            for (int kw=wstart; kw <= w + raddw; kw++){
-                                res += k->data[k_ptr] * getindex(t, n, c, kh, kw);
+    int in_channels = k->dims[1];
+    int kernel_size = k->dims[2] * k->dims[3];
+    tensor_fp32* out = T(t->dims[0], out_channels, ho, wo);
+
+    for (int n = 0; n < batch; n++){
+        for (int h = laddh; h < t->dims[2]-raddh; h+=stride){
+            for (int w = laddw; w < t->dims[3]-raddw; w+=stride){
+                for (int cout=0; cout < out_channels; cout++){
+                    float agg = 0;
+                    for (int cin=0; cin < in_channels; cin++){
+                        for(int hk=0; hk<k->dims[2]; hk++){
+                            for(int wk=0; wk<k->dims[3]; wk++){
+                                agg += getindex(k, cout, cin, hk, wk) * 
+                                    getindex(t, n, cin, h+hk-laddh, w+wk-laddw);
                             }
-                            k_ptr += 1;
                         }
                     }
-                    out->data[out_ptr] = res;
-                    out_ptr += 1;
+
+                    // TODO: test the bias term
+                    if (b != NULL){
+                        agg += getindex(b, cout);
+                    }
+                    int hindex = floor((h-laddh)/stride);
+                    int windex = floor((w-laddw)/stride);
+                    setindex(out, agg, n, cout, hindex, windex);
+
                 }
             }
         }
     }
 
-    if (padding > 0){
-        free_tensor(t);
-    }
 
     return out;
 }

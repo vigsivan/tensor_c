@@ -240,13 +240,12 @@ bool conv2d_3x3mean_kernel() {
     tensor_fp32 *image = init_tensor(4, image_shape, image_data);
 
     // create image 3x3 mean kernel
-    int kernel_shape[3] = {1, 3,3};
-    tensor_fp32 *k = init_tensor(3, kernel_shape, NULL);
+    int kernel_shape[4] = {1,1, 3,3};
+    tensor_fp32 *k = init_tensor(4, kernel_shape, NULL);
     scalarop_inplace_fp32add(k, 1);
     scalarop_inplace_fp32mul(k, (float) 1/9);
 
-    tensor_fp32* out = op_fp32conv2d(image, k, 1, 0);
-    // tensor_fp32* out = op_fp32maxpool2d(image, 2,2, 2, 1);
+    tensor_fp32* out = op_fp32conv2d(image, k, NULL, 1, 0);
 
     float expected[9] = {
         3,4,5,
@@ -255,6 +254,7 @@ bool conv2d_3x3mean_kernel() {
     };
 
     bool passed = check_equals(out->data, expected, 9);
+    printf("passed = %d\n", passed);
 
     free_tensor(image);
     free_tensor(k);
@@ -275,12 +275,12 @@ bool conv2d_2x2mean_kernel() {
     tensor_fp32 *image = init_tensor(4, image_shape, image_data);
 
     // create image 2x2 mean kernel
-    int kernel_shape[3] = {1, 2,2};
-    tensor_fp32 *k = init_tensor(3, kernel_shape, NULL);
+    int kernel_shape[4] = {1, 1, 2,2};
+    tensor_fp32 *k = init_tensor(4, kernel_shape, NULL);
     scalarop_inplace_fp32add(k, 1);
     scalarop_inplace_fp32mul(k, (float) 1/4);
 
-    tensor_fp32* out = op_fp32conv2d(image, k, 1, 0);
+    tensor_fp32* out = op_fp32conv2d(image, k, NULL, 1, 0);
 
     float expected[16] = {
         2,3,4,5,
@@ -300,7 +300,8 @@ bool conv2d_2x2mean_kernel() {
 
 bool check_equals(float* a, float* b, int size){
     for(int i=0; i<size; i++){
-        if(a[i] != b[i]){
+        if(a[i] - b[i] > 0.00001  || a[i] - b[i] < -0.00001){
+            printf("%f does not equal %f. Difference = %f\n", a[i], b[i], a[i]-b[i]);
             return false;
         }
     }
