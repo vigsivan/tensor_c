@@ -82,8 +82,7 @@ def seed_everything():
     yield
 
 def test_lenet(tlib, lenet, lenet_torch, seed_everything):
-    arr = torch.randint(0,1,(1,1,28,28)).float()
-
+    arr = torch.randint(0,2,(1,1,28,28)).float()
     net = lenet.load_lenet(b"./lenet.bin")
     ImageShape = ctypes.c_int * 4
     ImageData = ctypes.c_float * (28**2)
