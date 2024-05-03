@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <dirent.h>
+#include <string.h>
 
 typedef struct {
     tensor_fp32 *c0w;
@@ -98,14 +100,13 @@ lenet* load_lenet(const char* checkpoint){
 mnist_image* load_mnist(char* mnist_path){
     FILE* file = fopen(mnist_path, "rb");     
     int dims[4] = { 1, 1, 28, 28 };
-    tensor_fp32* data = init_tensor(4, dims, NULL);
+    tensor_fp32* data = T(1,1,28,28);
     if (!file) { 
         fprintf(stderr, "Couldn't open file %s\n", mnist_path);
         exit(EXIT_FAILURE); 
     }
     int label;
     fread(&label, sizeof(int), 1, file);
-    printf("Read mnist file with label %i\n", label);
     fread(data->data, sizeof(float)*28*28, 1, file);
     mnist_image* image = malloc(sizeof(mnist_image));
     image->lbl = label;
@@ -114,7 +115,8 @@ mnist_image* load_mnist(char* mnist_path){
 }
 
 
-int lenet_forward(lenet *net, tensor_fp32 *input){
+
+tensor_fp32* lenet_forward(lenet *net, tensor_fp32* input){
     tensor_fp32* x = op_fp32conv2d(input, net->c0w, net->c0b, 1, 2);
     x = op_fp32sigmoid(x);
     x = op_fp32avgpool2d(x, 2, 2, 2, 0);
@@ -130,6 +132,12 @@ int lenet_forward(lenet *net, tensor_fp32 *input){
     x = op_fp32linear(x, net->l2w, net->l2b);
     x = op_fp32sigmoid(x);
 
+    return x;
+}
+
+int lenet_inference(lenet *net, tensor_fp32 *input){
+	tensor_fp32* x = lenet_forward(net, input);
+
     // TODO: implement argmax for tensor_fp32
     float max = -INFINITY;
     int argmax = -1;
@@ -143,6 +151,7 @@ int lenet_forward(lenet *net, tensor_fp32 *input){
     return argmax;
 }
 
+
 void error_usage() {
     fprintf(stderr, "Usage:   lenet <checkpoint> <mnist_folder>\n");
     fprintf(stderr, "Example: lenet lenet.bin /home/jovyan/mnist_folder");
@@ -153,6 +162,7 @@ void error_usage() {
 int main(int argc, char** argv) {
     char* checkpoint_path = NULL;
     char* mnist_folder = NULL;
+    struct dirent *de;  // Pointer for directory entry 
 
     if (argc < 3) {
         error_usage();
@@ -161,11 +171,45 @@ int main(int argc, char** argv) {
     checkpoint_path = argv[1];
     mnist_folder = argv[2];
     lenet* net = load_lenet(checkpoint_path);
-    mnist_image* mi = load_mnist(mnist_folder);
-    int pred = lenet_forward(net, mi->data);
-    if (pred != mi->lbl){
-        printf("Incorrect prediction: Predicted %i, but label is %i", pred, mi->lbl);
+
+  
+    DIR *dr = opendir(mnist_folder); 
+    if (dr == NULL)  // opendir returns NULL if couldn't open directory 
+    { 
+        printf("Could not open mnist directory %s.\n", mnist_folder); 
+        return 0; 
+    } 
+    int correct = 0;
+    int total = 0;
+    int count = 15;
+    while ((de = readdir(dr)) != NULL) {
+        count -=1;
+        if (de->d_name[0] == '.'){
+            continue;
+        }
+
+        char path[1024];
+        int len = snprintf(path, sizeof(path)-1, "%s/%s", mnist_folder, de->d_name);
+        path[len] = 0;
+        mnist_image* mi = load_mnist(path);
+        int pred = lenet_inference(net, mi->data);
+        if (pred == mi->lbl){
+            correct += 1; 
+        }
+        total += 1;
+        if (count == 0) {
+            break;
+        }
     }
+    closedir(dr);     
+
+    printf("Got %d correct predictions out of %d", correct ,total);
+
+    // mnist_image* mi = load_mnist(mnist_folder);
+    // int pred = lenet_inference(net, mi->data);
+    // if (pred != mi->lbl){
+    //     printf("Incorrect prediction: Predicted %i, but label is %i", pred, mi->lbl);
+    // }
     // print_linear(net->c0w);
     // print_linear(net->c1w);
     lenet_free(net);
