@@ -85,6 +85,7 @@ def lenet(tlib):
 
     netlib.load_lenet.restype = ctypes.POINTER(LeNetStruct)
     netlib.lenet_forward.restype = tlib.init_tensor.restype
+    netlib.lenet_inference.restype = ctypes.c_int
 
     yield netlib
 
@@ -94,7 +95,7 @@ def seed_everything():
     np.random.seed(42)
     yield
 
-def test_lenet(tlib, lenet, lenet_torch, seed_everything):
+def test_lenet_forward(tlib, lenet, lenet_torch, seed_everything):
     arr = torch.randint(0,2,(1,1,28,28)).float()
     net = lenet.load_lenet(b"./lenet.bin")
     ImageShape = ctypes.c_int * 4
@@ -105,27 +106,28 @@ def test_lenet(tlib, lenet, lenet_torch, seed_everything):
     image_c = tlib.init_tensor(4,image_shape, image_data)
 
     out = lenet.lenet_forward(net, image_c)
-    # out = tlib.op_fp32conv2d(image_c, net.contents.c0w, net.contents.c0b, 1, 2)
-    # out = tlib.op_fp32sigmoid(out);
-    # out = tlib.op_fp32avgpool2d(out, 2, 2, 2, 0)
-    #
-    # out = tlib.op_fp32conv2d(out, net.contents.c1w, net.contents.c1b, 1, 0)
-    # out = tlib.op_fp32sigmoid(out);
-    # out = tlib.op_fp32avgpool2d(out, 2, 2, 2, 0)
-    # out = tlib.op_fp32flatten(out);
-    # out = tlib.op_fp32linear(out, net.contents.l0w, net.contents.l0b)
-    # out = tlib.op_fp32sigmoid(out);
-    # out = tlib.op_fp32linear(out, net.contents.l1w, net.contents.l1b)
-    # out = tlib.op_fp32sigmoid(out);
-    # out = tlib.op_fp32linear(out, net.contents.l2w, net.contents.l2b)
-    # out = tlib.op_fp32sigmoid(out);
-
     expected = torch.flatten(lenet_torch(arr)).detach().numpy()
 
     assert out.contents.size == np.prod(expected.shape)
 
     for i in range(out.contents.size):
         assert np.allclose(out.contents.data[i], expected[i])
+
+def test_lenet_inference(tlib, lenet, lenet_torch, seed_everything):
+    arr = torch.randint(0,2,(1,1,28,28)).float()
+    net = lenet.load_lenet(b"./lenet.bin")
+    ImageShape = ctypes.c_int * 4
+    ImageData = ctypes.c_float * (28**2)
+    image_shape = ImageShape(1,1,28,28)
+    li = torch.flatten(arr).numpy().tolist()
+    image_data = ImageData(*li)
+    image_c = tlib.init_tensor(4,image_shape, image_data)
+
+    out = lenet.lenet_inference(net, image_c)
+    expected = torch.argmax(lenet_torch(arr).detach()).item()
+
+    assert out == expected
+
 
 def test_sigmoid_activation(tlib):
     ImageShape = ctypes.c_int * 4
