@@ -462,7 +462,7 @@ tensor_fp32* op_fp32relu(tensor_fp32* t){
 tensor_fp32* op_fp32sigmoid(tensor_fp32* t){
     tensor_fp32* out = init_tensor(t->ndims, t->dims, NULL);
     for (int i=0; i < t->size; i++){
-        out->data[i] = 1 / (1 + (float) exp(-1 * i));
+        out->data[i] = 1 / (1 + exp(-1 * t->data[i]));
     }
     return out;
 }
