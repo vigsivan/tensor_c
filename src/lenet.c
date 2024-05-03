@@ -78,7 +78,6 @@ lenet* load_lenet(const char* checkpoint){
         fread(t->data, sizeof(float) * t->size, 1, file);
     }
 
-    printf("Successfully loaded checkpoint `%s' with expected number of modules\n", checkpoint);
     fclose(file);
 
     lenet* net = malloc(sizeof(lenet));

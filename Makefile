@@ -2,26 +2,26 @@ CC = gcc
 
 all: lenet
 
-lenet: lenet.c tensor.o 
+lenet: src/lenet.c tensor.o 
 	mkdir -p bin
-	$(CC) -o bin/lenet lenet.c tensor.o -lm
+	$(CC) -o bin/lenet src/lenet.c bin/tensor.o -lm
 
-net: lenet.c tensor.o
-	$(CC) -shared -o bin/lenet.so lenet.c tensor.o -lm
+net: src/lenet.c tensor.o
+	$(CC) -shared -o bin/lenet.so src/lenet.c bin/tensor.o -lm
 
 test: net tensor
-	pytest .
+	pytest test/
 
 # test: test.c tensor.o
 # 	mkdir -p bin
 # 	$(CC) -o bin/main test.c tensor.o -lm
 
-tensor.o: tensor.c tensor.h
-	$(CC) -c tensor.c 
+tensor.o: src/tensor.c src/tensor.h
+	mkdir -p bin
+	$(CC) -o bin/tensor.o -c src/tensor.c  
 
-tensor: tensor.c tensor.h
-	$(CC) -shared -o bin/tensor.so tensor.c
+tensor: src/tensor.c src/tensor.h
+	$(CC) -shared -o bin/tensor.so src/tensor.c
 
 clean:
-	rm -f *.o
 	rm -rf bin

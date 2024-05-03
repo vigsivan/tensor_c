@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "tensor.h"
 
+
 void print_data(tensor_fp32 *t);
 bool check_equals(float* a, float* b, int size);
 
@@ -296,6 +297,50 @@ bool conv2d_2x2mean_kernel() {
     free_tensor(out);
     return passed;
 }
+
+bool conv2d_lenetc0() {
+    int image_shape[4] = {1, 1, 10, 10};
+    float image_data[100] = { 
+        1,2,3,4,5,1,2,3,4,5, 
+        2,3,4,5,6,2,3,4,5,6,
+        3,4,5,6,7,3,4,5,6,7,
+        4,5,6,7,8,4,5,6,7,8,
+        5,6,7,8,9,5,6,7,8,9,
+        1,2,3,4,5,1,2,3,4,5, 
+        2,3,4,5,6,2,3,4,5,6,
+        3,4,5,6,7,3,4,5,6,7,
+        4,5,6,7,8,4,5,6,7,8,
+        5,6,7,8,9,5,6,7,8,9
+
+    };
+
+    tensor_fp32 *image = init_tensor(4, image_shape, image_data);
+
+    // create image 2x2 mean kernel
+    int kernel_shape[4] = {1, 1, 2,2};
+    tensor_fp32 *k = init_tensor(4, kernel_shape, NULL);
+
+
+    scalarop_inplace_fp32add(k, 1);
+    scalarop_inplace_fp32mul(k, (float) 1/4);
+
+    tensor_fp32* out = op_fp32conv2d(image, k, NULL, 1, 0);
+
+    float expected[16] = {
+        2,3,4,5,
+        3,4,5,6,
+        4,5,6,7,
+        5,6,7,8
+    };
+
+    bool passed = check_equals(out->data, expected, 16);
+
+    free_tensor(image);
+    free_tensor(k);
+    free_tensor(out);
+    return passed;
+}
+
 
 
 bool check_equals(float* a, float* b, int size){
