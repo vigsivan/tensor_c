@@ -15,7 +15,9 @@ def tlib():
                 ("ndims", ctypes.c_int),
                 ("dims", ctypes.POINTER(ctypes.c_int)),
                 ("strides", ctypes.POINTER(ctypes.c_int)),
-                ("data", ctypes.POINTER(ctypes.c_float))
+                ("data", ctypes.POINTER(ctypes.c_float)),
+                ("gradient", ctypes.c_float),
+                ("Op", ctypes.c_int)
         ]
 
     TPOINTER = ctypes.POINTER(TensorFP32)

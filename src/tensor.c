@@ -30,6 +30,8 @@ tensor_fp32* init_tensor(int ndims, int* dims, float* data){
             t->data[i] = data[i];
         }
     }
+    t->gradient = 0;
+    Op op=Op_none;
     return t;
 }
 

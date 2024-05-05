@@ -4,12 +4,29 @@
 #define NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 #define T(...) init_empty_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
 
+typedef enum {
+    Op_none,
+    Op_fp32mul,
+    Op_fp32pad2d,
+    Op_fp32add,
+    Op_fp32sub,
+    Op_fp32dot,
+    Op_fp32linear,
+    Op_fp32conv2d,
+    Op_fp32maxpool2d,
+    Op_fp32avgpool2d,
+    Op_fp32relu,
+    Op_fp32sigmoid,
+} Op;
+
 typedef struct tensor_fp32{
 	int size;
 	int ndims;
     int* dims;
     int* strides;
     float* data;
+    float gradient;
+    Op op;
 } tensor_fp32;
 
 /*
