@@ -27,6 +27,7 @@ typedef struct tensor_fp32{
     float* data;
     float gradient;
     Op op;
+    struct tensor_fp32** children;
 } tensor_fp32;
 
 /*

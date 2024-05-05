@@ -32,6 +32,7 @@ tensor_fp32* init_tensor(int ndims, int* dims, float* data){
     }
     t->gradient = 0;
     Op op=Op_none;
+    tensor_fp32** children = NULL;
     return t;
 }
 

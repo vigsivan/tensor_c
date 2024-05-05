@@ -9,16 +9,17 @@ import torch
 def tlib():
     tlib = CDLL("./bin/tensor.so")
 
-    class TensorFP32(ctypes.Structure):
-        _fields_ = [
-                ("size", ctypes.c_int),
-                ("ndims", ctypes.c_int),
-                ("dims", ctypes.POINTER(ctypes.c_int)),
-                ("strides", ctypes.POINTER(ctypes.c_int)),
-                ("data", ctypes.POINTER(ctypes.c_float)),
-                ("gradient", ctypes.c_float),
-                ("Op", ctypes.c_int)
-        ]
+    class TensorFP32(ctypes.Structure): pass
+    TensorFP32._fields_ = [
+        ("size", ctypes.c_int),
+        ("ndims", ctypes.c_int),
+        ("dims", ctypes.POINTER(ctypes.c_int)),
+        ("strides", ctypes.POINTER(ctypes.c_int)),
+        ("data", ctypes.POINTER(ctypes.c_float)),
+        ("gradient", ctypes.c_float),
+        ("Op", ctypes.c_int),
+        ("children", ctypes.POINTER(ctypes.POINTER(TensorFP32)))
+    ]
 
     TPOINTER = ctypes.POINTER(TensorFP32)
     tlib.init_tensor.restype = TPOINTER
