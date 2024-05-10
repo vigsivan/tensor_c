@@ -21,6 +21,7 @@ tensor.o: src/tensor.c src/tensor.h
 	$(CC) -o bin/tensor.o -c src/tensor.c  
 
 tensor: src/tensor.c src/tensor.h
+	mkdir -p bin
 	$(CC) -shared -o bin/tensor.so src/tensor.c
 
 clean:

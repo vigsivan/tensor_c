@@ -1,8 +1,15 @@
+#include <stdlib.h>
+#include <stdbool.h>
 #pragma once
 #define getindex(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
 #define setindex(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
 #define NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 #define T(...) init_empty_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
+#define register(t,operation,...)                                                    \
+    do {                                                                             \
+        int ntensors = (sizeof((tensor_fp32*[]){__VA_ARGS__})/sizeof(tensor_fp32*)); \
+        register_op(t, operation, ntensors, __VA_ARGS__);                            \
+    } while(0)                                                                       \
 
 typedef enum {
     Op_none,
@@ -23,11 +30,11 @@ typedef struct tensor_fp32{
 	int size;
 	int ndims;
     int* dims;
-    int* strides;
     float* data;
     float gradient;
     Op op;
     struct tensor_fp32** children;
+    bool requires_grad;
 } tensor_fp32;
 
 /*
@@ -36,6 +43,30 @@ typedef struct tensor_fp32{
 tensor_fp32* init_tensor(int ndims, int* dims, float* data);
 tensor_fp32* init_empty_tensor(int ndims, ...);
 void free_tensor(tensor_fp32* t);
+
+/*
+ * Set opcode and children
+ */ 
+
+void register_op(tensor_fp32* t, Op op, int nchildren, ...);
+
+/*
+ * Computation Graph
+ */
+
+typedef struct {
+} cgraph_allocator;
+
+typedef struct {
+    size_t num_nodes;
+    cgraph_allocator allocator;
+    tensor_fp32** nodes;
+} cgraph;
+
+cgraph* init_cgraph();
+void register_weight(cgraph* graph, char* name, int ndims, ...);
+tensor_fp32* get_weight(cgraph* graph, char* name);
+void free_cgraph(cgraph* graph);
 
 /*
  * Get and Set Index

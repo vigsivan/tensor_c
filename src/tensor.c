@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "tensor.h"
+#include "string.h"
 
 /**************************************************
  * Constructor and destructor
@@ -19,20 +20,18 @@ tensor_fp32* init_tensor(int ndims, int* dims, float* data){
 	}
     t->size = size;
 	t->ndims = ndims;
-    t->strides = NULL;
     t->dims = malloc(ndims * sizeof(int));
-    for(int i=0; i<ndims; i++){
-	t->dims[i] = dims[i];
-    }
+    memcpy(t->dims, dims, sizeof(int) * ndims);
     t->data = calloc(size, sizeof(float));
     if (data != NULL){
-        for(int i=0; i<size; i++){
-            t->data[i] = data[i];
-        }
+        memcpy(t->data, data, size * sizeof(float));
     }
     t->gradient = 0;
+    // t->requires_grad = false;
     Op op=Op_none;
-    tensor_fp32** children = NULL;
+    t->children = NULL;
+    t->requires_grad= false;
+    
     return t;
 }
 
@@ -49,13 +48,9 @@ tensor_fp32* init_empty_tensor(int ndims, ...){
 void free_tensor(tensor_fp32* t){
     free(t->data);
     free(t->dims);
-    free(t->strides);
+    free(t->children);
     free(t);
 }
-
-/**************************************************
- * Get and Set Index
- **************************************************/
 
 float op_fp32getindex(tensor_fp32* t, int ndims, ...){
     va_list indexes;
@@ -95,6 +90,16 @@ void op_fp32setindex(tensor_fp32* t, float val, int ndims, ...){
     t->data[idx] = val;
 }
 
+void register_op(tensor_fp32* t, Op op, int nchildren, ...){
+    va_list children;
+    va_start(children, nchildren);
+    t->op = op;
+    t->children = malloc(sizeof(tensor_fp32*) * nchildren);
+    for (int i =0; i < nchildren; i++){
+        t->children[i] = va_arg(children, tensor_fp32*);
+    }
+}
+
 /**************************************************
  * Scalar Operations
  **************************************************/
@@ -118,6 +123,7 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
         exit(1);
     }
     tensor_fp32* padded = T(t->dims[0],t->dims[1],(padh*2)+t->dims[2],(padw*2)+t->dims[3]);
+    register(padded, Op_fp32pad2d, t);
     scalarop_inplace_fp32add(padded, padval);
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c<t->dims[1]; c++){
@@ -190,11 +196,12 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
         laddw = mid_w, raddw = mid_w;
     }
 
-    tensor_fp32* out = T(t->dims[0], t->dims[1], ho, wo);
-
     if (padding > 0){
         t = scalarop_fp32pad2d(t, padding, padding, -INFINITY);
     }
+
+    tensor_fp32* out = T(t->dims[0], t->dims[1], ho, wo);
+    register(out, Op_fp32avgpool2d, t);
 
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c < t-> dims[1]; c++) {
@@ -218,9 +225,9 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
         }
     }
     
-    if (padding > 0){
-        free_tensor(t);
-    } 
+    // if (padding > 0){
+    //     free_tensor(t);
+    // } 
     return out;
 }
 
@@ -301,9 +308,9 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
         }
     }
     
-    if (padding > 0){
-        free_tensor(t);
-    } 
+    // if (padding > 0){
+    //     free_tensor(t);
+    // } 
     return out;
 }
 
@@ -378,6 +385,8 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
     int in_channels = k->dims[1];
     int kernel_size = k->dims[2] * k->dims[3];
     tensor_fp32* out = T(t->dims[0], out_channels, ho, wo);
+
+    register(out, Op_fp32conv2d, t, k, b);
 
     for (int n = 0; n < batch; n++){
         for (int h = laddh; h < t->dims[2]-raddh; h+=stride){
@@ -464,6 +473,7 @@ tensor_fp32* op_fp32relu(tensor_fp32* t){
 
 tensor_fp32* op_fp32sigmoid(tensor_fp32* t){
     tensor_fp32* out = init_tensor(t->ndims, t->dims, NULL);
+    register(out, Op_fp32sigmoid, t);
     for (int i=0; i < t->size; i++){
         out->data[i] = 1 / (1 + exp(-1 * t->data[i]));
     }

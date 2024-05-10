@@ -6,35 +6,6 @@ import pytest
 import torch
 
 @pytest.fixture
-def tlib():
-    tlib = CDLL("./bin/tensor.so")
-
-    class TensorFP32(ctypes.Structure): pass
-    TensorFP32._fields_ = [
-        ("size", ctypes.c_int),
-        ("ndims", ctypes.c_int),
-        ("dims", ctypes.POINTER(ctypes.c_int)),
-        ("strides", ctypes.POINTER(ctypes.c_int)),
-        ("data", ctypes.POINTER(ctypes.c_float)),
-        ("gradient", ctypes.c_float),
-        ("Op", ctypes.c_int),
-        ("children", ctypes.POINTER(ctypes.POINTER(TensorFP32)))
-    ]
-
-    TPOINTER = ctypes.POINTER(TensorFP32)
-    tlib.init_tensor.restype = TPOINTER
-    tlib.op_fp32conv2d.argtypes = [TPOINTER, TPOINTER, TPOINTER, ctypes.c_int, ctypes.c_int]
-    tlib.op_fp32conv2d.restype = TPOINTER
-    tlib.op_fp32sigmoid.restype = TPOINTER
-    tlib.exp.restype = ctypes.c_double
-    tlib.op_fp32avgpool2d.restype = TPOINTER
-    tlib.op_fp32flatten.restype = TPOINTER
-    tlib.op_fp32linear.argtypes = [TPOINTER, TPOINTER, TPOINTER]
-    tlib.op_fp32linear.restype = TPOINTER
-
-    yield tlib
-
-@pytest.fixture
 def lenet_torch():
     class LeNet(torch.nn.Module):
         def __init__(self):
