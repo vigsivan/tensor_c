@@ -24,6 +24,7 @@ typedef enum {
     Op_fp32avgpool2d,
     Op_fp32relu,
     Op_fp32sigmoid,
+    Op_fp32flatten,
 } Op;
 
 typedef struct tensor_fp32{

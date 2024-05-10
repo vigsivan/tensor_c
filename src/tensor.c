@@ -94,9 +94,15 @@ void register_op(tensor_fp32* t, Op op, int nchildren, ...){
     va_list children;
     va_start(children, nchildren);
     t->op = op;
-    t->children = malloc(sizeof(tensor_fp32*) * nchildren);
-    for (int i =0; i < nchildren; i++){
-        t->children[i] = va_arg(children, tensor_fp32*);
+    if (t->children == NULL) {
+        t->children = malloc(sizeof(tensor_fp32*) * nchildren);
+        for (int i =0; i < nchildren; i++){
+            t->children[i] = va_arg(children, tensor_fp32*);
+        }
+    }
+    else {
+        // TODO
+        // t->children = realloc(t->children, sizeof(tensor_fp32) * (t->children + nchildren)
     }
 }
 
@@ -430,12 +436,13 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
  * Note: This function just returns a view of the original data.
  */
 tensor_fp32* op_fp32flatten(tensor_fp32* t){
-    int new_shape[2] = {t->dims[0], 1};
+    int D =  1;
     for (int i=1; i < t->ndims; i++){
-        new_shape[1] *= t->dims[i];
+        D *= t->dims[i];
     }
-    tensor_fp32* out = init_tensor(2, new_shape, NULL);
-    out->data = t->data;
+    tensor_fp32* out = T(t->dims[0], D);
+    register(out, Op_fp32flatten, t);
+    memcpy(out->data, t->data, sizeof(float) * t->size);
     return out;
 }
 
@@ -576,8 +583,10 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
         printf("Error: op_fp32linear expects weight and bias dims to match");
         exit(1);
     }
-    int new_shape[2] = {t->dims[0], w_t->dims[1]};
-    tensor_fp32* out = init_tensor(2, new_shape, NULL);
+
+    tensor_fp32* out = T(t->dims[0], w_t->dims[1]);
+    register(out, Op_fp32linear, t, w, b);
+
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < w_t->dims[1]; c++){
             float res = 0;
