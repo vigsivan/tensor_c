@@ -11,10 +11,9 @@ def tlib():
 
     class TensorFP32(ctypes.Structure):
         _fields_ = [
-                ("size", ctypes.c_int),
-                ("ndims", ctypes.c_int),
-                ("dims", ctypes.POINTER(ctypes.c_int)),
-                ("strides", ctypes.POINTER(ctypes.c_int)),
+                ("size", ctypes.c_size_t),
+                ("ndims", ctypes.c_size_t),
+                ("dims", ctypes.POINTER(ctypes.c_size_t)),
                 ("data", ctypes.POINTER(ctypes.c_float))
         ]
 
@@ -98,7 +97,7 @@ def seed_everything():
 def test_lenet_forward(tlib, lenet, lenet_torch, seed_everything):
     arr = torch.randint(0,2,(1,1,28,28)).float()
     net = lenet.load_lenet(b"./lenet.bin")
-    ImageShape = ctypes.c_int * 4
+    ImageShape = ctypes.c_size_t * 4
     ImageData = ctypes.c_float * (28**2)
     image_shape = ImageShape(1,1,28,28)
     li = torch.flatten(arr).numpy().tolist()
@@ -116,7 +115,7 @@ def test_lenet_forward(tlib, lenet, lenet_torch, seed_everything):
 def test_lenet_inference(tlib, lenet, lenet_torch, seed_everything):
     arr = torch.randint(0,2,(1,1,28,28)).float()
     net = lenet.load_lenet(b"./lenet.bin")
-    ImageShape = ctypes.c_int * 4
+    ImageShape = ctypes.c_size_t * 4
     ImageData = ctypes.c_float * (28**2)
     image_shape = ImageShape(1,1,28,28)
     li = torch.flatten(arr).numpy().tolist()
@@ -130,7 +129,7 @@ def test_lenet_inference(tlib, lenet, lenet_torch, seed_everything):
 
 
 def test_sigmoid_activation(tlib):
-    ImageShape = ctypes.c_int * 4
+    ImageShape = ctypes.c_size_t * 4
     ImageData = ctypes.c_float * 25
     image_shape = ImageShape(1,1,5,5)
     image_data = ImageData(
@@ -156,10 +155,8 @@ def test_sigmoid_activation(tlib):
         assert np.allclose(out.contents.data[i], expected[i].item(), atol=1e-6)
 
     
-
-
 def test_conv2d_3x3mean_kernel(tlib):
-    ImageShape = ctypes.c_int * 4
+    ImageShape = ctypes.c_size_t * 4
     ImageData = ctypes.c_float * 25
     image_shape = ImageShape(1,1,5,5)
     image_data = ImageData(
@@ -171,7 +168,7 @@ def test_conv2d_3x3mean_kernel(tlib):
     )
     image = tlib.init_tensor(4,image_shape, image_data)
 
-    KernelShape = ctypes.c_int * 4
+    KernelShape = ctypes.c_size_t * 4
     KernelData = ctypes.c_float * 9
     kernel_shape = KernelShape(1,1,3,3)
     kernel_data = KernelData(
@@ -191,7 +188,7 @@ def test_conv2d_3x3mean_kernel(tlib):
 
 
 def test_conv2d_2x2mean_kernel(tlib):
-    ImageShape = ctypes.c_int * 4
+    ImageShape = ctypes.c_size_t * 4
     ImageData = ctypes.c_float * 25
     image_shape = ImageShape(1,1,5,5)
     image_data = ImageData(
@@ -203,7 +200,7 @@ def test_conv2d_2x2mean_kernel(tlib):
     )
     image = tlib.init_tensor(4,image_shape, image_data)
 
-    KernelShape = ctypes.c_int * 4
+    KernelShape = ctypes.c_size_t * 4
     KernelData = ctypes.c_float * 4
     kernel_shape = KernelShape(1,1,2,2)
     kernel_data = KernelData(
@@ -227,7 +224,7 @@ def test_conv2d_2x2mean_kernel(tlib):
 
 # TODO
 def test_multi_channel_conv(tlib):
-    ImageShape = ctypes.c_int * 4
+    ImageShape = ctypes.c_size_t * 4
     ImageData = ctypes.c_float * 25
     image_shape = ImageShape(1,1,5,5)
     image_data = ImageData(
@@ -239,7 +236,7 @@ def test_multi_channel_conv(tlib):
     )
     image = tlib.init_tensor(4,image_shape, image_data)
 
-    KernelShape = ctypes.c_int * 4
+    KernelShape = ctypes.c_size_t * 4
     KernelData = ctypes.c_float * 18
     kernel_shape = KernelShape(2,1,3,3)
     kernel_data = KernelData(

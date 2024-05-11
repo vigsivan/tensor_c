@@ -1,22 +1,22 @@
 #pragma once
+#include <stdlib.h>
 #define getindex(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
 #define setindex(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
 #define NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 #define T(...) init_empty_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
 
 typedef struct tensor_fp32{
-	int size;
-	int ndims;
-    int* dims;
-    int* strides;
+	size_t size;
+	size_t ndims;
+    size_t* dims;
     float* data;
 } tensor_fp32;
 
 /*
  * Constructor and destructor
  */
-tensor_fp32* init_tensor(int ndims, int* dims, float* data);
-tensor_fp32* init_empty_tensor(int ndims, ...);
+tensor_fp32* init_tensor(size_t ndims, size_t* dims, float* data);
+tensor_fp32* init_empty_tensor(size_t ndims, ...);
 void free_tensor(tensor_fp32* t);
 
 /*
