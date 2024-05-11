@@ -60,6 +60,7 @@ void free_tensor(tensor_fp32* t);
 
 void register_op(tensor_fp32* t, Op op, int nchildren, ...);
 void backward(tensor_fp32* t);
+int get_num_children(Op op);
 
 /*
  * Computation Graph
@@ -146,7 +147,7 @@ typedef struct {
     tensor_fp32** items;
 } stack;
 
-inline stack* init_stack(){
+stack* init_stack(){
     stack* st = (stack*) malloc(sizeof(stack)); 
     st->size = 0;
     st->capacity = 20;
@@ -154,7 +155,7 @@ inline stack* init_stack(){
     return st;
 }
 
-inline void append(stack* st, tensor_fp32* item){
+void append(stack* st, tensor_fp32* item){
     if (st->size < st->capacity) {
         st->items[st->size] = item;
         st->size += 1;

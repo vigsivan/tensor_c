@@ -79,6 +79,36 @@ void free_tensor(tensor_fp32* t){
     free(t);
 }
 
+int get_num_children(Op op){
+    switch (op) {
+        case Op_none:
+            return 0;
+        case Op_fp32mul:
+        case Op_fp32add:
+        case Op_fp32sub:
+        case Op_fp32dot:
+            return 2;
+
+        case Op_fp32linear:
+        case Op_fp32conv2d:
+            return 3;
+
+        case Op_fp32pad2d:
+        case Op_fp32maxpool2d:
+        case Op_fp32avgpool2d:
+        case Op_fp32relu:
+        case Op_fp32sigmoid:
+        case Op_fp32flatten:
+        case Op_fp32total:
+        case Op_fp32sumaxis:
+        case Op_scalarfp32exp:
+        case Op_scalarfp32mul:
+        case Op_scalarfp32pad2d:
+            return 1;
+
+    }
+}
+
 void backward(tensor_fp32* t){
     if (t->op == Op_none) {
         fprintf(stderr, "Tensor has op_none, cannot compute backward\n");
@@ -90,9 +120,16 @@ void backward(tensor_fp32* t){
     }
     t->gradient = ones(1);
     printf("Loss gradient is %f\n", t->gradient->data[0]);
-}
-
-void backward_pass(tensor_fp32* t){
+    stack* gradients = init_stack();
+    stack* tensors = init_stack();
+    for (int i = 0; i < get_num_children(t->op); i++){
+        append(tensors, t->children[i]);
+        append(gradients, t->gradient);
+    }
+    while (tensors->size > 0){
+        tensor_fp32* c = pop(tensors);
+        tensor_fp32* g = pop(gradients);
+    }
 
 }
 
@@ -598,6 +635,7 @@ tensor_fp32* op_fp32sub(tensor_fp32* l, tensor_fp32* r){
     for(int i=0; i<size; i++){
     t->data[i] = l->data[i] - r->data[i];
     }
+    register(t, Op_fp32sub, l, r);
     return t;
 }
 
