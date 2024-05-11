@@ -113,6 +113,18 @@ mnist_image* load_mnist(char* mnist_path){
     return image;
 }
 
+tensor_fp32* sse(int num_classes, int lbl, tensor_fp32* prediction){
+    if (prediction->ndims != 2 || prediction->dims[0] != 1 || prediction->dims[1] != num_classes){
+        fprintf(stderr, "Expected shape (1, %d). Got %dD tensor with last dim shape %d\n", num_classes, prediction->ndims, prediction->dims[prediction->ndims-1]);
+        exit(1);
+    }
+    tensor_fp32* lbl_tensor = T(1,num_classes);
+    setindex(lbl_tensor, 1, 0, lbl);
+    tensor_fp32* out = scalarop_fp32exp(op_fp32sub(prediction, lbl_tensor), 2);
+    out = op_fp32total(out);
+    return out;
+}
+
 
 
 tensor_fp32* lenet_forward(lenet *net, tensor_fp32* input){
@@ -191,25 +203,12 @@ int main(int argc, char** argv) {
         int len = snprintf(path, sizeof(path)-1, "%s/%s", mnist_folder, de->d_name);
         path[len] = 0;
         mnist_image* mi = load_mnist(path);
-        int pred = lenet_inference(net, mi->data);
-        if (pred == mi->lbl){
-            correct += 1; 
-        }
-        total += 1;
-        if (count == 0) {
-            break;
-        }
+        tensor_fp32* pred = lenet_forward(net, mi->data);
+        tensor_fp32* loss = sse(10, mi->lbl, pred);
+        backward(loss);
     }
     closedir(dr);     
 
     printf("Got %d correct predictions out of %d", correct ,total);
-
-    // mnist_image* mi = load_mnist(mnist_folder);
-    // int pred = lenet_inference(net, mi->data);
-    // if (pred != mi->lbl){
-    //     printf("Incorrect prediction: Predicted %i, but label is %i", pred, mi->lbl);
-    // }
-    // print_linear(net->c0w);
-    // print_linear(net->c1w);
     lenet_free(net);
 }

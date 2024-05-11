@@ -26,11 +26,9 @@ tensor_fp32* init_tensor(int ndims, int* dims, float* data){
     if (data != NULL){
         memcpy(t->data, data, size * sizeof(float));
     }
-    t->gradient = 0;
-    // t->requires_grad = false;
+    t->gradient = NULL;
     Op op=Op_none;
     t->children = NULL;
-    t->requires_grad= false;
     
     return t;
 }
@@ -45,11 +43,57 @@ tensor_fp32* init_empty_tensor(int ndims, ...){
     return init_tensor(ndims, dims, NULL);
 }
 
+tensor_fp32* init_ones_tensor(int ndims, ...){
+    va_list indexes;
+    va_start(indexes, ndims);
+    int dims[ndims];
+    for (int i = 0; i < ndims; i++){
+        dims[i] = va_arg(indexes, int);
+    }
+    tensor_fp32* t = init_tensor(ndims, dims, NULL);
+    for (int i = 0; i < t->size; i++){
+        t->data[i] = 1;
+    }
+    return t;
+}
+
+tensor_fp32* init_random_tensor(int ndims, ...){
+    fprintf(stderr, "init random tensor not yet implemented\n");
+    va_list indexes;
+    va_start(indexes, ndims);
+    int dims[ndims];
+    for (int i = 0; i < ndims; i++){
+        dims[i] = va_arg(indexes, int);
+    }
+    tensor_fp32* t = init_tensor(ndims, dims, NULL);
+    // TODO
+    return t;
+}
+
+
 void free_tensor(tensor_fp32* t){
     free(t->data);
     free(t->dims);
     free(t->children);
+    free(t->gradient);
     free(t);
+}
+
+void backward(tensor_fp32* t){
+    if (t->op == Op_none) {
+        fprintf(stderr, "Tensor has op_none, cannot compute backward\n");
+        exit(1);
+    }
+    if (t->size > 1){
+        fprintf(stderr, "Can only call backward on a one-item tensor\n");
+        exit(1);
+    }
+    t->gradient = ones(1);
+    printf("Loss gradient is %f\n", t->gradient->data[0]);
+}
+
+void backward_pass(tensor_fp32* t){
+
 }
 
 float op_fp32getindex(tensor_fp32* t, int ndims, ...){
@@ -91,18 +135,16 @@ void op_fp32setindex(tensor_fp32* t, float val, int ndims, ...){
 }
 
 void register_op(tensor_fp32* t, Op op, int nchildren, ...){
+    if (t->children != NULL){
+        fprintf(stderr, "This tensor has already been registered");
+        exit(1);
+    }
     va_list children;
     va_start(children, nchildren);
+    t->children = malloc(sizeof(tensor_fp32*) * nchildren);
     t->op = op;
-    if (t->children == NULL) {
-        t->children = malloc(sizeof(tensor_fp32*) * nchildren);
-        for (int i =0; i < nchildren; i++){
-            t->children[i] = va_arg(children, tensor_fp32*);
-        }
-    }
-    else {
-        // TODO
-        // t->children = realloc(t->children, sizeof(tensor_fp32) * (t->children + nchildren)
+    for (int i =0; i < nchildren; i++){
+        t->children[i] = va_arg(children, tensor_fp32*);
     }
 }
 
@@ -112,13 +154,23 @@ void register_op(tensor_fp32* t, Op op, int nchildren, ...){
 
 tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar){
 	tensor_fp32* t2 = init_tensor(t->ndims, t->dims, NULL);
-	int size = 1;
-	for (int i = 0; i < t->ndims; i++) {
-		size *= t->dims[i];
-	}
-	for (int i=0; i < size; i++) {
+	for (int i=0; i < t2->size; i++) {
 		t2->data[i] = t->data[i] * scalar;
 	}
+    tensor_fp32* S = T(1);
+    S->data[0] = scalar;
+    register(t2, Op_scalarfp32mul, S);
+    return t2;
+}
+
+tensor_fp32* scalarop_fp32exp(tensor_fp32* t, float scalar){
+	tensor_fp32* t2 = init_tensor(t->ndims, t->dims, NULL);
+	for (int i=0; i < t2->size; i++) {
+		t2->data[i] = powf(t->data[i], scalar);
+	}
+    tensor_fp32* S = T(1);
+    S->data[0] = scalar;
+    register(t2, Op_scalarfp32exp, S);
     return t2;
 }
 
@@ -509,8 +561,8 @@ void scalarop_inplace_fp32add(tensor_fp32* t, float scalar){
 
 tensor_fp32* op_fp32add(tensor_fp32* l, tensor_fp32* r){
     if(l->ndims != r->ndims){
-    printf("Error: ndims of l and r are not equal\n");
-    exit(1);
+        fprintf(stderr, "Error: ndims of l and r are not equal\n");
+        exit(1);
     }
     for(int i=0; i<l->ndims; i++){
         if(l->dims[i] != r->dims[i]){
@@ -519,13 +571,10 @@ tensor_fp32* op_fp32add(tensor_fp32* l, tensor_fp32* r){
         }
     }
     tensor_fp32 *t = init_tensor(l->ndims, l->dims, NULL);
-    int size = 1;
-    for(int i=0; i<l->ndims; i++){
-    size *= l->dims[i];
+    for(int i=0; i<t->size; i++){
+        t->data[i] = l->data[i] + r->data[i];
     }
-    for(int i=0; i<size; i++){
-    t->data[i] = l->data[i] + r->data[i];
-    }
+    register(t, Op_fp32add, l, r);
     return t;
 }
 
@@ -603,6 +652,40 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
     return out;
 }
 
+tensor_fp32* op_fp32sumaxis(tensor_fp32* t, int axis){
+    if (axis >= t->ndims) {
+        fprintf(stderr, "Axis not valid for %dD tensor", t->ndims);
+        exit(1);
+    }
+    int dims[t->ndims-1];
+    int ptr = 0;
+    for (int i = 0; i < t->ndims; i++){
+        if (i == axis){
+            continue;
+        }
+        dims[ptr] = t->dims[i];
+        ptr += 1;
+    }
+    tensor_fp32* out = init_tensor(t->ndims-1, dims, NULL);
+    int strides[t->ndims-1];
+    for (int i = 0; i < out->size; i++){
+        for (int j = 0; j < out->ndims-i; j++){
+            // TODO: figure this out
+        }
+    }
+    return out;
+}
+
+tensor_fp32* op_fp32total(tensor_fp32* t){
+    tensor_fp32* out = T(1);
+    for (int i = 0; i < t-> size; i++){
+        out->data[0] += t->data[i];
+    }
+    register(out, Op_fp32total, t);
+    return out;
+}
+
+
 /**************************************************
  * Debugging
  **************************************************/
@@ -670,3 +753,5 @@ void print_raw(tensor_fp32* t){
     }
     printf("]\n");
 }
+
+

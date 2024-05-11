@@ -1,10 +1,13 @@
-#include <stdlib.h>
-#include <stdbool.h>
 #pragma once
+#include <stdlib.h>
+#include <stdio.h>
 #define getindex(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
 #define setindex(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
 #define NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 #define T(...) init_empty_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
+#define ones(...) init_ones_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
+#define rand(...) init_random_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
+
 #define register(t,operation,...)                                                    \
     do {                                                                             \
         int ntensors = (sizeof((tensor_fp32*[]){__VA_ARGS__})/sizeof(tensor_fp32*)); \
@@ -25,6 +28,11 @@ typedef enum {
     Op_fp32relu,
     Op_fp32sigmoid,
     Op_fp32flatten,
+    Op_fp32total,
+    Op_fp32sumaxis,
+    Op_scalarfp32exp,
+    Op_scalarfp32mul,
+    Op_scalarfp32pad2d,
 } Op;
 
 typedef struct tensor_fp32{
@@ -32,10 +40,9 @@ typedef struct tensor_fp32{
 	int ndims;
     int* dims;
     float* data;
-    float gradient;
     Op op;
+    struct tensor_fp32* gradient;
     struct tensor_fp32** children;
-    bool requires_grad;
 } tensor_fp32;
 
 /*
@@ -43,6 +50,8 @@ typedef struct tensor_fp32{
  */
 tensor_fp32* init_tensor(int ndims, int* dims, float* data);
 tensor_fp32* init_empty_tensor(int ndims, ...);
+tensor_fp32* init_random_tensor(int ndims, ...);
+tensor_fp32* init_ones_tensor(int ndims, ...);
 void free_tensor(tensor_fp32* t);
 
 /*
@@ -50,6 +59,7 @@ void free_tensor(tensor_fp32* t);
  */ 
 
 void register_op(tensor_fp32* t, Op op, int nchildren, ...);
+void backward(tensor_fp32* t);
 
 /*
  * Computation Graph
@@ -78,6 +88,7 @@ void op_fp32setindex(tensor_fp32* t, float val, int ndims, ...);
 /*
  * Scalar Operations
  */
+tensor_fp32* scalarop_fp32exp(tensor_fp32* t, float scalar);
 tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar);
 tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval);
 
@@ -88,6 +99,8 @@ tensor_fp32* op_fp32add(tensor_fp32* l, tensor_fp32* r);
 tensor_fp32* op_fp32sub(tensor_fp32* l, tensor_fp32* r);
 tensor_fp32* op_fp32dot(tensor_fp32* l, tensor_fp32* r);
 tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b);
+tensor_fp32* op_fp32sumaxis(tensor_fp32* t, int axis);
+tensor_fp32* op_fp32total(tensor_fp32* t);
 
 /*
  * Window Operations
@@ -121,3 +134,44 @@ void scalarop_inplace_fp32add(tensor_fp32* t, float scalar);
 void print_2d(tensor_fp32* t);
 void print_linear(tensor_fp32* t);
 void print_raw(tensor_fp32* t);
+char* get_shape_str(tensor_fp32* t);
+
+/*
+ * Stack
+ */
+
+typedef struct {
+    int size;
+    int capacity;
+    tensor_fp32** items;
+} stack;
+
+inline stack* init_stack(){
+    stack* st = (stack*) malloc(sizeof(stack)); 
+    st->size = 0;
+    st->capacity = 20;
+    st->items = (tensor_fp32**) malloc(sizeof(tensor_fp32*) * st->capacity);
+    return st;
+}
+
+inline void append(stack* st, tensor_fp32* item){
+    if (st->size < st->capacity) {
+        st->items[st->size] = item;
+        st->size += 1;
+    }
+    else{
+        fprintf(stderr, "Stack full and realloc not implemented yet!");
+        exit(1);
+    }
+}
+
+inline tensor_fp32* pop(stack* st){
+    if (st->size == 0) {
+        return NULL;
+    }
+    else{
+        st->size -= 1;
+        return st->items[st->size];
+    }
+
+}
