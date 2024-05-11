@@ -7,7 +7,7 @@
 /**************************************************
  * Constructor and destructor
  **************************************************/
-tensor_fp32* init_tensor(int ndims, int* dims, float* data){
+tensor_fp32* init_tensor(size_t ndims, size_t* dims, float* data){
     if(dims == NULL){
         printf("Error: dims is NULL\n");
         exit(1);
@@ -19,8 +19,7 @@ tensor_fp32* init_tensor(int ndims, int* dims, float* data){
 	}
     t->size = size;
 	t->ndims = ndims;
-    t->strides = NULL;
-    t->dims = malloc(ndims * sizeof(int));
+    t->dims = malloc(ndims * sizeof(size_t));
     for(int i=0; i<ndims; i++){
 	t->dims[i] = dims[i];
     }
@@ -33,10 +32,10 @@ tensor_fp32* init_tensor(int ndims, int* dims, float* data){
     return t;
 }
 
-tensor_fp32* init_empty_tensor(int ndims, ...){
+tensor_fp32* init_empty_tensor(size_t ndims, ...){
     va_list indexes;
     va_start(indexes, ndims);
-    int dims[ndims];
+    size_t dims[ndims];
     for (int i = 0; i < ndims; i++){
         dims[i] = va_arg(indexes, int);
     }
@@ -46,7 +45,6 @@ tensor_fp32* init_empty_tensor(int ndims, ...){
 void free_tensor(tensor_fp32* t){
     free(t->data);
     free(t->dims);
-    free(t->strides);
     free(t);
 }
 
@@ -66,7 +64,7 @@ float op_fp32getindex(tensor_fp32* t, int ndims, ...){
         idx += index;
     }
     if (idx >= t->size) {
-        printf("Get Error: index %d is out of bounds for tensor of size %d\n", idx, t->size);
+        printf("Get Error: index %d is out of bounds for tensor of size %zu\n", idx, t->size);
         exit(1);
     }
     return t->data[idx];
@@ -86,7 +84,7 @@ void op_fp32setindex(tensor_fp32* t, float val, int ndims, ...){
         idx += index;
     }
     if (idx >= t->size) {
-        printf("Set Error: index %d is out of bounds for tensor of size %d\n", idx, t->size);
+        printf("Set Error: index %d is out of bounds for tensor of size %zu\n", idx, t->size);
         exit(1);
     }
     t->data[idx] = val;
@@ -321,7 +319,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
         exit(EXIT_FAILURE);
     }
     if(k->ndims != 4){
-        fprintf(stderr, "Error: op_fp32conv2d expects kernel with 4 dims (c,h,w). Got %d", k->ndims);
+        fprintf(stderr, "Error: op_fp32conv2d expects kernel with 4 dims (c,h,w). Got %zu", k->ndims);
         exit(EXIT_FAILURE);
     }
     if (k->dims[1] != t->dims[1]){
@@ -418,7 +416,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
  * Note: This function just returns a view of the original data.
  */
 tensor_fp32* op_fp32flatten(tensor_fp32* t){
-    int new_shape[2] = {t->dims[0], 1};
+    size_t new_shape[2] = {t->dims[0], 1};
     for (int i=1; i < t->ndims; i++){
         new_shape[1] *= t->dims[i];
     }
@@ -432,7 +430,7 @@ tensor_fp32* op_fp32transposelinear(tensor_fp32* t){
         printf("Error: op_fp32transposelinear expects 2d input tensor");
         exit(1);
     }
-    int new_shape[2] = {t->dims[1], t->dims[0]};
+    size_t new_shape[2] = {t->dims[1], t->dims[0]};
     tensor_fp32* out = init_tensor(2, new_shape, NULL);
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < t->dims[1]; c++){
@@ -563,7 +561,7 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
         printf("Error: op_fp32linear expects weight and bias dims to match");
         exit(1);
     }
-    int new_shape[2] = {t->dims[0], w_t->dims[1]};
+    size_t new_shape[2] = {t->dims[0], w_t->dims[1]};
     tensor_fp32* out = init_tensor(2, new_shape, NULL);
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < w_t->dims[1]; c++){
@@ -618,12 +616,12 @@ void print_2d(tensor_fp32* t){
 
 void print_linear(tensor_fp32* t){
     if (t->ndims != 2){
-        printf("%iD tensor ", t->ndims);
+        printf("%zuD tensor ", t->ndims);
         printf("(");
         for (int d=0; d<t->ndims; d++){
             if (d == t->ndims-1){
-                printf("%i): ", t->dims[d]);
-            } else { printf("%ix", t->dims[d]); }
+                printf("%zu): ", t->dims[d]);
+            } else { printf("%zux", t->dims[d]); }
         }
         print_raw(t);
         return;

@@ -65,10 +65,12 @@ lenet* load_lenet(const char* checkpoint){
    
     // initialize tensors
     for (int i = 0; i < 10; i++){
-        int ndims_i = ndims[i];
-        int dims[ndims_i];
+        size_t ndims_i = ndims[i];
+        size_t dims[ndims_i];
+        int buf;
         for(int j=0; j<ndims_i; j++){
-            fread(dims + j, sizeof(int), 1, file);
+            fread(&buf, sizeof(int), 1, file);
+            dims[j] = (size_t) buf;
         }
         tensors[i] = init_tensor(ndims_i, dims, NULL);
     }
