@@ -109,6 +109,30 @@ int get_num_children(Op op){
     }
 }
 
+void op_backwards(tensor_fp32* t){
+    switch (t->op){
+        case Op_none:
+        case Op_fp32mul:
+        case Op_fp32add:
+        case Op_fp32sub:
+        case Op_fp32dot:
+        case Op_fp32linear:
+        case Op_fp32conv2d:
+        case Op_fp32pad2d:
+        case Op_fp32maxpool2d:
+        case Op_fp32avgpool2d:
+        case Op_fp32relu:
+        case Op_fp32sigmoid:
+        case Op_fp32flatten:
+        case Op_fp32total:
+        case Op_fp32sumaxis:
+        case Op_scalarfp32exp:
+        case Op_scalarfp32mul:
+        case Op_scalarfp32pad2d:
+            return;
+    }
+}
+
 void backward(tensor_fp32* t){
     if (t->op == Op_none) {
         fprintf(stderr, "Tensor has op_none, cannot compute backward\n");
@@ -119,19 +143,61 @@ void backward(tensor_fp32* t){
         exit(1);
     }
     t->gradient = ones(1);
-    printf("Loss gradient is %f\n", t->gradient->data[0]);
-    stack* gradients = init_stack();
-    stack* tensors = init_stack();
-    for (int i = 0; i < get_num_children(t->op); i++){
-        append(tensors, t->children[i]);
-        append(gradients, t->gradient);
-    }
-    while (tensors->size > 0){
-        tensor_fp32* c = pop(tensors);
-        tensor_fp32* g = pop(gradients);
-    }
-
+    recursive_backprop(t);
 }
+
+void recursive_backprop(tensor_fp32* t){
+    if (t->gradient == NULL){
+        fprintf(stderr, "Expect recursive gradient function to be called with gradient");
+    }
+    if (t->children){
+        switch (t->op){
+            case Op_fp32linear:
+                {
+                    tensor_fp32* x = t->children[0];
+                    tensor_fp32* w = t->children[1];
+                    tensor_fp32* b = t->children[2];
+                    backwardop_fp32linear(t, x, w, b);
+                    recursive_backprop(w);
+                    recursive_backprop(b);
+                    recursive_backprop(x);
+                    break;
+                }
+            case Op_fp32total:
+                {
+                    backwardop_fp32total(t);
+                    recursive_backprop(t->children[0]);
+                    break;
+                }
+            case Op_scalarfp32exp:
+                {
+                    backwardop_scalarfp32exp(t);
+                    break; 
+                }
+            case Op_fp32mul:
+            case Op_fp32add:
+            case Op_fp32sub:
+            case Op_fp32dot:
+            case Op_fp32conv2d:
+            case Op_fp32pad2d:
+            case Op_fp32maxpool2d:
+            case Op_fp32avgpool2d:
+            case Op_fp32relu:
+            case Op_fp32sigmoid:
+            case Op_fp32flatten:
+            case Op_fp32sumaxis:
+            case Op_scalarfp32mul:
+            case Op_scalarfp32pad2d:
+                {
+                    fprintf(stderr, "Backprop not yet implemented\n");
+                    exit(1);
+                }
+            case Op_none:
+                return;
+        }
+    }
+}
+
 
 float op_fp32getindex(tensor_fp32* t, int ndims, ...){
     va_list indexes;
@@ -196,7 +262,7 @@ tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar){
 	}
     tensor_fp32* S = T(1);
     S->data[0] = scalar;
-    register(t2, Op_scalarfp32mul, S);
+    register(t2, Op_scalarfp32mul, t, S);
     return t2;
 }
 
@@ -207,7 +273,7 @@ tensor_fp32* scalarop_fp32exp(tensor_fp32* t, float scalar){
 	}
     tensor_fp32* S = T(1);
     S->data[0] = scalar;
-    register(t2, Op_scalarfp32exp, S);
+    register(t2, Op_scalarfp32exp, t, S);
     return t2;
 }
 
@@ -721,6 +787,25 @@ tensor_fp32* op_fp32total(tensor_fp32* t){
     }
     register(out, Op_fp32total, t);
     return out;
+}
+
+/**************************************************
+ * Backprop
+ **************************************************/
+
+void backwardop_fp32total(tensor_fp32* t){
+    // TODO: verify
+    t->children[0]->gradient = t->gradient;
+}
+
+void backwardop_fp32linear(tensor_fp32* out, tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
+    b->gradient = out->gradient;
+    w->gradient = op_fp32linear(out->gradient, t, NULL);
+    t->gradient = op_fp32linear(w, out->gradient, NULL);
+}
+
+void backwardop_scalarfp32exp(tensor_fp32* t){
+    // TODO
 }
 
 

@@ -60,25 +60,8 @@ void free_tensor(tensor_fp32* t);
 
 void register_op(tensor_fp32* t, Op op, int nchildren, ...);
 void backward(tensor_fp32* t);
+void recursive_backprop(tensor_fp32* t);
 int get_num_children(Op op);
-
-/*
- * Computation Graph
- */
-
-typedef struct {
-} cgraph_allocator;
-
-typedef struct {
-    size_t num_nodes;
-    cgraph_allocator allocator;
-    tensor_fp32** nodes;
-} cgraph;
-
-cgraph* init_cgraph();
-void register_weight(cgraph* graph, char* name, int ndims, ...);
-tensor_fp32* get_weight(cgraph* graph, char* name);
-void free_cgraph(cgraph* graph);
 
 /*
  * Get and Set Index
@@ -121,6 +104,14 @@ tensor_fp32* op_fp32transposelinear(tensor_fp32* t);
  */
 tensor_fp32* op_fp32relu(tensor_fp32* t);
 tensor_fp32* op_fp32sigmoid(tensor_fp32* t);
+
+/*
+ * Backward Pass Functions
+ */
+
+void backwardop_fp32total(tensor_fp32* t);
+void backwardop_fp32linear(tensor_fp32* out, tensor_fp32* t, tensor_fp32* w, tensor_fp32* b);
+void backwardop_scalarfp32exp(tensor_fp32* out);
 
 
 /*
