@@ -147,17 +147,28 @@ void recursive_backprop(tensor_fp32* t){
             case Op_scalarfp32exp:
                 {
                     backwardop_scalarfp32exp(t);
+                    recursive_backprop(t->children[0]);
                     break; 
                 }
 
             case Op_fp32add:
                 {
                     backwardop_fp32add(t);
+                    recursive_backprop(t->children[0]);
+                    recursive_backprop(t->children[1]);
                     break;
                 }
             case Op_fp32sub:
                 {
                     backwardop_fp32sub(t);
+                    recursive_backprop(t->children[0]);
+                    recursive_backprop(t->children[1]);
+                    break;
+                }
+            case Op_fp32sigmoid:
+                {
+                    backwardop_fp32sigmoid(t);
+                    recursive_backprop(t->children[0]);
                     break;
                 }
             case Op_fp32mul:
@@ -167,7 +178,6 @@ void recursive_backprop(tensor_fp32* t){
             case Op_fp32maxpool2d:
             case Op_fp32avgpool2d:
             case Op_fp32relu:
-            case Op_fp32sigmoid:
             case Op_fp32flatten:
             case Op_fp32sumaxis:
             case Op_scalarfp32mul:
@@ -713,7 +723,7 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
         exit(1);
     }
     if(t->dims[1] != w_t->dims[0]){
-        printf("Error: op_fp32linear expects input and weight dims to match");
+        printf("Error: op_fp32linear expects input and weight dims to match. In dim 1 is %d and weight dim 0 is %d", t->dims[1], w_t->dims[0]);
         exit(1);
     }
     if(b != NULL && w_t->dims[1] != b->dims[0]){
@@ -787,8 +797,8 @@ void backwardop_fp32total(tensor_fp32* t){
 
 void backwardop_fp32linear(tensor_fp32* out, tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
     b->gradient = out->gradient;
-    w->gradient = op_fp32linear(out->gradient, t, NULL);
-    t->gradient = op_fp32linear(w, out->gradient, NULL);
+    w->gradient = op_fp32linear(out->gradient, op_fp32transposelinear(t), NULL);
+    t->gradient = op_fp32linear(out->gradient, op_fp32transposelinear(w), NULL);
 }
 
 void backwardop_scalarfp32exp(tensor_fp32* t){
@@ -804,6 +814,14 @@ void backwardop_fp32add(tensor_fp32* t){
 void backwardop_fp32sub(tensor_fp32* t){
     t->children[0]->gradient = t->gradient;
     t->children[1]->gradient = scalarop_fp32mul(t->gradient, -1);
+}
+
+void backwardop_fp32sigmoid(tensor_fp32* t){
+    tensor_fp32* child = t->children[0];
+    child->gradient = init_tensor(t->ndims, t->dims, NULL);
+    for (int i=0; i < t->size; i++){
+        child->gradient->data[i] = t->data[i] * (1 - t->data[i]);
+    }
 }
 
 

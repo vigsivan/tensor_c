@@ -29,6 +29,9 @@ def tlib():
     tlib.op_fp32linear.restype = TPOINTER
     tlib.op_fp32add.argtypes = [TPOINTER,TPOINTER]
     tlib.op_fp32add.restype = TPOINTER
+    tlib.op_fp32sub.argtypes = [TPOINTER,TPOINTER]
+    tlib.op_fp32sub.restype = TPOINTER
+
 
     tlib.op_fp32total.argtypes = [TPOINTER]
     tlib.op_fp32total.restype = TPOINTER
