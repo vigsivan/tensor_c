@@ -66,7 +66,6 @@ tensor_fp32* init_random_tensor(int ndims, ...){
         dims[i] = va_arg(indexes, int);
     }
     tensor_fp32* t = init_tensor(ndims, dims, NULL);
-    // TODO
     return t;
 }
 
@@ -106,30 +105,6 @@ int get_num_children(Op op){
         case Op_scalarfp32pad2d:
             return 1;
 
-    }
-}
-
-void op_backwards(tensor_fp32* t){
-    switch (t->op){
-        case Op_none:
-        case Op_fp32mul:
-        case Op_fp32add:
-        case Op_fp32sub:
-        case Op_fp32dot:
-        case Op_fp32linear:
-        case Op_fp32conv2d:
-        case Op_fp32pad2d:
-        case Op_fp32maxpool2d:
-        case Op_fp32avgpool2d:
-        case Op_fp32relu:
-        case Op_fp32sigmoid:
-        case Op_fp32flatten:
-        case Op_fp32total:
-        case Op_fp32sumaxis:
-        case Op_scalarfp32exp:
-        case Op_scalarfp32mul:
-        case Op_scalarfp32pad2d:
-            return;
     }
 }
 
@@ -174,9 +149,10 @@ void recursive_backprop(tensor_fp32* t){
                     backwardop_scalarfp32exp(t);
                     break; 
                 }
+
+            case Op_fp32add: // TODO
+            case Op_fp32sub: // TODO
             case Op_fp32mul:
-            case Op_fp32add:
-            case Op_fp32sub:
             case Op_fp32dot:
             case Op_fp32conv2d:
             case Op_fp32pad2d:
@@ -805,7 +781,18 @@ void backwardop_fp32linear(tensor_fp32* out, tensor_fp32* t, tensor_fp32* w, ten
 }
 
 void backwardop_scalarfp32exp(tensor_fp32* t){
-    // TODO
+    // TODO: this isn't clean
+    t->children[0]->gradient = scalarop_fp32mul(t->gradient, t->children[1]->data[0]);
+}
+
+void backwardop_fp32add(tensor_fp32* t){
+    t->children[0]->gradient = t->gradient;
+    t->children[1]->gradient = t->gradient;
+}
+
+void backwardop_fp32sub(tensor_fp32* t){
+    t->children[0]->gradient = t->gradient;
+    t->children[1]->gradient = scalarop_fp32mul(t->gradient, -1);
 }
 
 

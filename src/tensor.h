@@ -112,6 +112,8 @@ tensor_fp32* op_fp32sigmoid(tensor_fp32* t);
 void backwardop_fp32total(tensor_fp32* t);
 void backwardop_fp32linear(tensor_fp32* out, tensor_fp32* t, tensor_fp32* w, tensor_fp32* b);
 void backwardop_scalarfp32exp(tensor_fp32* out);
+void backwardop_fp32add(tensor_fp32* out);
+void backwardop_fp32sub(tensor_fp32* out);
 
 
 /*
@@ -137,25 +139,6 @@ typedef struct {
     int capacity;
     tensor_fp32** items;
 } stack;
-
-stack* init_stack(){
-    stack* st = (stack*) malloc(sizeof(stack)); 
-    st->size = 0;
-    st->capacity = 20;
-    st->items = (tensor_fp32**) malloc(sizeof(tensor_fp32*) * st->capacity);
-    return st;
-}
-
-void append(stack* st, tensor_fp32* item){
-    if (st->size < st->capacity) {
-        st->items[st->size] = item;
-        st->size += 1;
-    }
-    else{
-        fprintf(stderr, "Stack full and realloc not implemented yet!");
-        exit(1);
-    }
-}
 
 inline tensor_fp32* pop(stack* st){
     if (st->size == 0) {
