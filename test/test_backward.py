@@ -67,20 +67,22 @@ def test_bias(tlib, net_bias):
     input_data = InputData(1., 2., 3., 4., 5.)
     input_tensor = tlib.init_tensor(1,input_shape, input_data)
 
-    SumShape = ctypes.c_int*1
-    SumData = ctypes.c_float * 5
-    sum_shape = SumShape(5)
-    sum_data = SumData(6.,7.,8.,9.,10.,)
-    sum_tensor = tlib.init_tensor(1,sum_shape, sum_data)
+    BiasShape = ctypes.c_int*1
+    BiasData = ctypes.c_float * 5
+    bias_shape = BiasShape(5)
+    bias_data = BiasData(6.,7.,8.,9.,10.,)
+    bias_tensor = tlib.init_tensor(1,bias_shape, bias_data)
 
-    summation = tlib.op_fp32add(sum_tensor, input_tensor)
-    out = tlib.op_fp32total(summation)
+    bout = tlib.op_fp32add(bias_tensor, input_tensor)
+    out = tlib.op_fp32total(bout)
     tlib.backward(out)
 
-    # gradient = sum_tensor.contents.gradient
-    # expected = [1]*5
-    # for i in range(gradient.size):
-    #     assert np.allclose(gradient.contents.data[i], expected[i], atol=1e-6)
+    gradient = bias_tensor.contents.gradient
+    expected = [1]*5
+    assert gradient, "Gradient is None"
+    assert gradient.contents.size == 5
+    for i in range(gradient.contents.size):
+        assert np.allclose(gradient.contents.data[i], expected[i], atol=1e-6)
 
 
 # def test_backward_linear(tlib, net_lin_sig):

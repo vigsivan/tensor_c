@@ -125,7 +125,7 @@ void recursive_backprop(tensor_fp32* t){
     if (t->gradient == NULL){
         fprintf(stderr, "Expect recursive gradient function to be called with gradient");
     }
-    if (t->children){
+    if (t->children != NULL){
         switch (t->op){
             case Op_fp32linear:
                 {
@@ -150,8 +150,16 @@ void recursive_backprop(tensor_fp32* t){
                     break; 
                 }
 
-            case Op_fp32add: // TODO
-            case Op_fp32sub: // TODO
+            case Op_fp32add:
+                {
+                    backwardop_fp32add(t);
+                    break;
+                }
+            case Op_fp32sub:
+                {
+                    backwardop_fp32sub(t);
+                    break;
+                }
             case Op_fp32mul:
             case Op_fp32dot:
             case Op_fp32conv2d:
@@ -770,8 +778,11 @@ tensor_fp32* op_fp32total(tensor_fp32* t){
  **************************************************/
 
 void backwardop_fp32total(tensor_fp32* t){
-    // TODO: verify
-    t->children[0]->gradient = t->gradient;
+    tensor_fp32* child = t->children[0];
+    child->gradient = init_tensor(child->ndims, child->dims, NULL);
+    for (int i = 0; i < child->size; i++){
+        child->gradient->data[i] = t->gradient->data[0];
+    }
 }
 
 void backwardop_fp32linear(tensor_fp32* out, tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
