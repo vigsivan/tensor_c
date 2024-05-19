@@ -659,7 +659,6 @@ tensor_fp32* bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride){
     return out;
 }
 
-
 /**************************************************
  * Shape Operations
  **************************************************/
@@ -906,7 +905,7 @@ void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, te
     }
 
     // TODO: check padding
-    // NOTE: assuming stride is 1
+    // FIXME: assuming stride is 1
     int s = 1;
     int ho = t->dims[2];
     int hin = out->dims[2];

@@ -47,9 +47,6 @@ def net_conv_sig_conv_sig_lin_sig():
     net = BasicNetwork()
     return net
 
-
-
-
 @pytest.fixture()
 def net_lin_sig():
     class BasicNetwork(torch.nn.Module):
