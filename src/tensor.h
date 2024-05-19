@@ -115,6 +115,10 @@ void backwardop_scalarfp32exp(tensor_fp32* out);
 void backwardop_fp32add(tensor_fp32* out);
 void backwardop_fp32sub(tensor_fp32* out);
 void backwardop_fp32sigmoid(tensor_fp32* out);
+void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, tensor_fp32* kb);
+// helper method for backward op
+tensor_fp32*  bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride);
+void backwardop_fp32flatten(tensor_fp32* t);
 
 
 /*

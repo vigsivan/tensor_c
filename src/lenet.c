@@ -125,8 +125,6 @@ tensor_fp32* sse(int num_classes, int lbl, tensor_fp32* prediction){
     return out;
 }
 
-
-
 tensor_fp32* lenet_forward(lenet *net, tensor_fp32* input){
     tensor_fp32* x = op_fp32conv2d(input, net->c0w, net->c0b, 1, 2);
     x = op_fp32sigmoid(x);

@@ -171,14 +171,31 @@ void recursive_backprop(tensor_fp32* t){
                     recursive_backprop(t->children[0]);
                     break;
                 }
+            case Op_fp32conv2d:
+                {
+                    tensor_fp32* inp = t->children[0];
+                    tensor_fp32* kw = t->children[1];
+                    tensor_fp32* kb = t->children[2];
+                    backwardop_fp32conv2d(t, inp, kw, kb);
+                    recursive_backprop(kw);
+                    recursive_backprop(kb);
+                    recursive_backprop(inp);
+                    break;
+                }
+
+            case Op_fp32flatten:
+                {
+                    backwardop_fp32flatten(t);
+                    recursive_backprop(t->children[0]);
+                    break;
+                }
+            case Op_fp32pad2d:
+                // Next
             case Op_fp32mul:
             case Op_fp32dot:
-            case Op_fp32conv2d:
-            case Op_fp32pad2d:
             case Op_fp32maxpool2d:
             case Op_fp32avgpool2d:
             case Op_fp32relu:
-            case Op_fp32flatten:
             case Op_fp32sumaxis:
             case Op_scalarfp32mul:
             case Op_scalarfp32pad2d:
@@ -472,13 +489,13 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
 /*
  * Implements 2D convolution (note: actually, correlation) naively.
  * This function is only implemented for a single filter.
- * output tensor has shape (N, Cin, ho, wo) (output shape depends on padding)
+ * output tensor has shape (N, Cout, ho, wo) (output shape depends on padding)
  * this function is probably really inefficient.
  * t: input tensor with shape (N, Cin, H, W)
  * k: kernel tensor with 2d shape (Cout, Cin, h, w)
- * b: kernel bias tensor with 2d shape (Cout, 1)
+ * b: kernel bias tensor with 1d shape (Cout)
  * stride: stride of convolution
- * padding: padding of convolution. Note: only 0-padding is supported
+ * padding: padding of convolution
  */
 tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int stride, int padding){
     if(t->ndims != 4){
@@ -557,7 +574,6 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
                         }
                     }
 
-                    // TODO: test the bias term
                     if (b != NULL){
                         agg += getindex(b, cout);
                     }
@@ -573,6 +589,100 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
 
     return out;
 }
+
+/*
+ * Implements 2D convolution (note: actually, correlation) naively.
+ * This function is only implemented for a single filter.
+ * output tensor has shape (Cout, Cin, hk, wk) (output shape depends on padding)
+ * this function is probably really inefficient.
+ * t: input tensor with shape (N, Cin, H, W)
+ * g: gradient tensor with shape (N, Cout, ho, wo)
+ * stride: stride of convolution
+ * padding: padding of convolution. Note: only 0-padding is supported
+ */
+tensor_fp32* bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride){
+    if(t->ndims != 4){
+        fprintf(stderr, "Error: bop_fp32conv2d expects 4d input tensor");
+        exit(EXIT_FAILURE);
+    }
+    if(g->ndims != 4){
+        fprintf(stderr, "Error: bop_fp32conv2d expects kernel with 4 dims (c,h,w). Got %d", g->ndims);
+        exit(EXIT_FAILURE);
+    }
+    if (g->dims[0] != t->dims[0]){
+        fprintf(stderr, "Error: bop_fp32conv2d kernel first dimension doesn't match");
+        exit(EXIT_FAILURE);
+    }
+    if (stride < 0){
+        fprintf(stderr, "Error: expecting stride to be gte 0. Got %d", stride);
+        exit(EXIT_FAILURE);
+    }
+    int padding = 0;
+
+    // TODO: look at this
+    // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
+    int ho = floor((t->dims[2] + 2 * padding - (g->dims[2]-1)-1)/stride + 1);
+    int wo = floor((t->dims[3] + 2 * padding - (g->dims[3]-1)-1)/stride + 1);
+
+    int mid_h = floor(g->dims[2] / 2);
+    int mid_w = floor(g->dims[3] / 2);
+
+    int laddh, raddh, laddw, raddw;
+    if (g->dims[2] % 2 == 0) {
+        laddh = mid_h; raddh = mid_h-1;
+        // laddh = mid_h; raddh = mid_h;
+    }
+    else {
+        laddh = mid_h; raddh = mid_h;
+    }
+    if (g->dims[3] % 2 == 0) {
+        laddw = mid_w; raddw = mid_w-1;
+        // laddw = mid_w; raddw = mid_w;
+    }
+    else {
+        laddw = mid_w; raddw = mid_w;
+    }
+
+    if (padding > 0) {
+        t = scalarop_fp32pad2d(t, padding, padding, (float) 0);
+    }
+
+    int batch = t->dims[0];
+    int out_channels = g->dims[1];
+    int in_channels = t->dims[1];
+    int kernel_size = g->dims[2] * g->dims[3];
+    tensor_fp32* out = T(out_channels, in_channels, ho, wo);
+
+    for (int cout=0; cout < out_channels; cout++){
+    // for (int n = 0; n < batch; n++){
+        for (int h = laddh; h < t->dims[2]-raddh; h+=stride){
+            for (int w = laddw; w < t->dims[3]-raddw; w+=stride){
+                // for (int cout=0; cout < out_channels; cout++){
+                // for (int n = 0; n < batch; n++){
+                for (int cin=0; cin < in_channels; cin++){
+                    float agg = 0;
+                    for (int n = 0; n < batch; n++){
+                    // for (int cin=0; cin < in_channels; cin++){
+                        for(int hk=0; hk<g->dims[2]; hk++){
+                            for(int wk=0; wk<g->dims[3]; wk++){
+                                agg += getindex(g, n, cout, hk, wk) * 
+                                    getindex(t, n, cin, h+hk-laddh, w+wk-laddw);
+                            }
+                        }
+                    }
+
+                    int hindex = floor((h-laddh)/stride);
+                    int windex = floor((w-laddw)/stride);
+                    setindex(out, agg, cout, cin, hindex, windex);
+
+                }
+            }
+        }
+    }
+
+    return out;
+}
+
 
 /**************************************************
  * Shape Operations
@@ -786,6 +896,62 @@ tensor_fp32* op_fp32total(tensor_fp32* t){
 /**************************************************
  * Backprop
  **************************************************/
+
+void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, tensor_fp32* kb){
+    if (kb != NULL){
+        kb->gradient = init_tensor(kb->ndims, kb->dims, NULL);
+        for (int cout = 0; cout < kb->dims[0]; cout++){
+            float agg = 0;
+            for (int n = 0; n < out->dims[0]; n++){
+                for (int h = 0; h < out->dims[2]; h++){
+                    for (int w = 0; w < out->dims[3]; w++){
+                        kb->gradient->data[cout] += getindex(out->gradient, n, cout, h, w);
+                    }
+                }
+            }
+
+        }
+    }
+    // TODO: how to incorporate stride?
+    kw->gradient = bop_fp32conv2d(t, out->gradient, 1);
+
+    // rotate by 180 degrees (i.e. perform correlation)
+    // and switch axes
+    tensor_fp32* kernel = T(kw->dims[1], kw->dims[0], kw->dims[2], kw->dims[3]);
+    for (int cout=0; cout < kw->dims[0]; cout++){
+        for (int cin=0; cin < kw->dims[1]; cin++){
+            for (int h=0; h < kw->dims[2]; h++){
+                for (int w=0; w < kw->dims[3]; w++){
+                    setindex(kernel, 
+                            getindex(kw, cout, cin, h, w), 
+                            cin, cout, kw->dims[2]-h-1, kw->dims[3]-w-1);
+                }
+            }
+        }
+    }
+
+    // TODO: check padding
+    // NOTE: assuming stride is 1
+    int s = 1;
+    int ho = t->dims[2];
+    int hin = out->dims[2];
+    int kh = kw->dims[2];
+    int p = (int) ceilf(0.5 * (ho*(s+1) + 1 + (kh-1) - hin));
+    t->gradient = op_fp32conv2d(out->gradient, kernel, NULL, 1, p);
+
+    // int ho = floor((t->dims[2] + 2 * padding - (k->dims[2]-1)-1)/stride + 1);
+    // int wo = floor((t->dims[3] + 2 * padding - (k->dims[3]-1)-1)/stride + 1);
+
+
+}
+
+void backwardop_fp32flatten(tensor_fp32* t){
+    tensor_fp32* child = t->children[0];
+    child->gradient = init_tensor(child->ndims, child->dims, NULL);
+    for (int i = 0; i < child->size; i++){
+        child->gradient->data[i] = t->gradient->data[i];
+    }
+}
 
 void backwardop_fp32total(tensor_fp32* t){
     tensor_fp32* child = t->children[0];
