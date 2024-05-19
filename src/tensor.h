@@ -29,16 +29,15 @@ typedef enum {
     Op_fp32sigmoid,
     Op_fp32flatten,
     Op_fp32total,
-    Op_fp32sumaxis,
     Op_scalarfp32exp,
     Op_scalarfp32mul,
     Op_scalarfp32pad2d,
 } Op;
 
 typedef struct tensor_fp32{
-	int size;
-	int ndims;
-    int* dims;
+	size_t size;
+	size_t ndims;
+    size_t* dims;
     float* data;
     Op op;
     struct tensor_fp32* gradient;
@@ -48,10 +47,11 @@ typedef struct tensor_fp32{
 /*
  * Constructor and destructor
  */
-tensor_fp32* init_tensor(int ndims, int* dims, float* data);
-tensor_fp32* init_empty_tensor(int ndims, ...);
-tensor_fp32* init_random_tensor(int ndims, ...);
-tensor_fp32* init_ones_tensor(int ndims, ...);
+tensor_fp32* init_tensor(size_t ndims, size_t* dims, float* data);
+tensor_fp32* init_empty_tensor(size_t ndims, ...);
+tensor_fp32* init_random_tensor(size_t ndims, ...);
+tensor_fp32* init_ones_tensor(size_t ndims, ...);
+
 void free_tensor(tensor_fp32* t);
 
 /*
@@ -83,7 +83,6 @@ tensor_fp32* op_fp32add(tensor_fp32* l, tensor_fp32* r);
 tensor_fp32* op_fp32sub(tensor_fp32* l, tensor_fp32* r);
 tensor_fp32* op_fp32dot(tensor_fp32* l, tensor_fp32* r);
 tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b);
-tensor_fp32* op_fp32sumaxis(tensor_fp32* t, int axis);
 tensor_fp32* op_fp32total(tensor_fp32* t);
 
 /*

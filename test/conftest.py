@@ -8,9 +8,9 @@ def tlib():
 
     class TensorFP32(ctypes.Structure): pass
     TensorFP32._fields_ = [
-        ("size", ctypes.c_int),
-        ("ndims", ctypes.c_int),
-        ("dims", ctypes.POINTER(ctypes.c_int)),
+        ("size", ctypes.c_size_t),
+        ("ndims", ctypes.c_size_t),
+        ("dims", ctypes.POINTER(ctypes.c_size_t)),
         ("data", ctypes.POINTER(ctypes.c_float)),
         ("op", ctypes.c_int),
         ("gradient", ctypes.POINTER(TensorFP32)),

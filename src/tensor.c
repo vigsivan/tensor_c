@@ -8,20 +8,20 @@
 /**************************************************
  * Constructor and destructor
  **************************************************/
-tensor_fp32* init_tensor(int ndims, int* dims, float* data){
+tensor_fp32* init_tensor(size_t ndims, size_t* dims, float* data){
     if(dims == NULL){
         printf("Error: dims is NULL\n");
         exit(1);
     }
     tensor_fp32 *t = (tensor_fp32* ) malloc(sizeof(tensor_fp32));
-	int size = 1;
+	size_t size = 1;
 	for (int i = 0; i < ndims; i++) {
 		size *= dims[i];
 	}
     t->size = size;
 	t->ndims = ndims;
-    t->dims = malloc(ndims * sizeof(int));
-    memcpy(t->dims, dims, sizeof(int) * ndims);
+    t->dims = malloc(ndims * sizeof(size_t));
+    memcpy(t->dims, dims, sizeof(size_t) * ndims);
     t->data = calloc(size, sizeof(float));
     if (data != NULL){
         memcpy(t->data, data, size * sizeof(float));
@@ -33,22 +33,22 @@ tensor_fp32* init_tensor(int ndims, int* dims, float* data){
     return t;
 }
 
-tensor_fp32* init_empty_tensor(int ndims, ...){
+tensor_fp32* init_empty_tensor(size_t ndims, ...){
     va_list indexes;
     va_start(indexes, ndims);
-    int dims[ndims];
+    size_t dims[ndims];
     for (int i = 0; i < ndims; i++){
-        dims[i] = va_arg(indexes, int);
+        dims[i] = va_arg(indexes, size_t);
     }
     return init_tensor(ndims, dims, NULL);
 }
 
-tensor_fp32* init_ones_tensor(int ndims, ...){
+tensor_fp32* init_ones_tensor(size_t ndims, ...){
     va_list indexes;
     va_start(indexes, ndims);
-    int dims[ndims];
+    size_t dims[ndims];
     for (int i = 0; i < ndims; i++){
-        dims[i] = va_arg(indexes, int);
+        dims[i] = va_arg(indexes, size_t);
     }
     tensor_fp32* t = init_tensor(ndims, dims, NULL);
     for (int i = 0; i < t->size; i++){
@@ -57,13 +57,13 @@ tensor_fp32* init_ones_tensor(int ndims, ...){
     return t;
 }
 
-tensor_fp32* init_random_tensor(int ndims, ...){
+tensor_fp32* init_random_tensor(size_t ndims, ...){
     fprintf(stderr, "init random tensor not yet implemented\n");
     va_list indexes;
     va_start(indexes, ndims);
-    int dims[ndims];
+    size_t dims[ndims];
     for (int i = 0; i < ndims; i++){
-        dims[i] = va_arg(indexes, int);
+        dims[i] = va_arg(indexes, size_t);
     }
     tensor_fp32* t = init_tensor(ndims, dims, NULL);
     return t;
@@ -170,7 +170,6 @@ void recursive_backprop(tensor_fp32* t){
             case Op_fp32maxpool2d:
             case Op_fp32avgpool2d:
             case Op_fp32relu:
-            case Op_fp32sumaxis:
             case Op_scalarfp32mul:
             case Op_scalarfp32pad2d:
                 {
@@ -196,7 +195,7 @@ float op_fp32getindex(tensor_fp32* t, int ndims, ...){
         idx += index;
     }
     if (idx >= t->size) {
-        printf("Get Error: index %d is out of bounds for tensor of size %d\n", idx, t->size);
+        printf("Get Error: index %d is out of bounds for tensor of size %zu\n", idx, t->size);
         exit(1);
     }
     return t->data[idx];
@@ -216,7 +215,7 @@ void op_fp32setindex(tensor_fp32* t, float val, int ndims, ...){
         idx += index;
     }
     if (idx >= t->size) {
-        printf("Set Error: index %d is out of bounds for tensor of size %d\n", idx, t->size);
+        printf("Set Error: index %d is out of bounds for tensor of size %zu\n", idx, t->size);
         exit(1);
     }
     t->data[idx] = val;
@@ -483,7 +482,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
         exit(EXIT_FAILURE);
     }
     if(k->ndims != 4){
-        fprintf(stderr, "Error: op_fp32conv2d expects kernel with 4 dims (c,h,w). Got %d", k->ndims);
+        fprintf(stderr, "Error: op_fp32conv2d expects kernel with 4 dims (c,h,w). Got %zu", k->ndims);
         exit(EXIT_FAILURE);
     }
     if (k->dims[1] != t->dims[1]){
@@ -586,7 +585,7 @@ tensor_fp32* bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride){
         exit(EXIT_FAILURE);
     }
     if(g->ndims != 4){
-        fprintf(stderr, "Error: bop_fp32conv2d expects kernel with 4 dims (c,h,w). Got %d", g->ndims);
+        fprintf(stderr, "Error: bop_fp32conv2d expects kernel with 4 dims (c,h,w). Got %zu", g->ndims);
         exit(EXIT_FAILURE);
     }
     if (g->dims[0] != t->dims[0]){
@@ -670,8 +669,8 @@ tensor_fp32* bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride){
  * Note: This function just returns a view of the original data.
  */
 tensor_fp32* op_fp32flatten(tensor_fp32* t){
-    int D =  1;
-    for (int i=1; i < t->ndims; i++){
+    size_t D =  1;
+    for (size_t i=1; i < t->ndims; i++){
         D *= t->dims[i];
     }
     tensor_fp32* out = T(t->dims[0], D);
@@ -685,7 +684,7 @@ tensor_fp32* op_fp32transposelinear(tensor_fp32* t){
         printf("Error: op_fp32transposelinear expects 2d input tensor");
         exit(1);
     }
-    int new_shape[2] = {t->dims[1], t->dims[0]};
+    size_t new_shape[2] = {t->dims[1], t->dims[0]};
     tensor_fp32* out = init_tensor(2, new_shape, NULL);
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < t->dims[1]; c++){
@@ -808,14 +807,13 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
         exit(1);
     }
     if(t->dims[1] != w_t->dims[0]){
-        printf("Error: op_fp32linear expects input and weight dims to match. In dim 1 is %d and weight dim 0 is %d", t->dims[1], w_t->dims[0]);
+        printf("Error: op_fp32linear expects input and weight dims to match. In dim 1 is %zu and weight dim 0 is %zu", t->dims[1], w_t->dims[0]);
         exit(1);
     }
     if(b != NULL && w_t->dims[1] != b->dims[0]){
         printf("Error: op_fp32linear expects weight and bias dims to match");
         exit(1);
     }
-
     tensor_fp32* out = T(t->dims[0], w_t->dims[1]);
     register(out, Op_fp32linear, t, w, b);
 
@@ -832,30 +830,6 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
         }
     }
     free_tensor(w_t);
-    return out;
-}
-
-tensor_fp32* op_fp32sumaxis(tensor_fp32* t, int axis){
-    if (axis >= t->ndims) {
-        fprintf(stderr, "Axis not valid for %dD tensor", t->ndims);
-        exit(1);
-    }
-    int dims[t->ndims-1];
-    int ptr = 0;
-    for (int i = 0; i < t->ndims; i++){
-        if (i == axis){
-            continue;
-        }
-        dims[ptr] = t->dims[i];
-        ptr += 1;
-    }
-    tensor_fp32* out = init_tensor(t->ndims-1, dims, NULL);
-    int strides[t->ndims-1];
-    for (int i = 0; i < out->size; i++){
-        for (int j = 0; j < out->ndims-i; j++){
-            // TODO: figure this out
-        }
-    }
     return out;
 }
 
@@ -1018,12 +992,12 @@ void print_2d(tensor_fp32* t){
 
 void print_linear(tensor_fp32* t){
     if (t->ndims != 2){
-        printf("%iD tensor ", t->ndims);
+        printf("%zuD tensor ", t->ndims);
         printf("(");
         for (int d=0; d<t->ndims; d++){
             if (d == t->ndims-1){
-                printf("%i): ", t->dims[d]);
-            } else { printf("%ix", t->dims[d]); }
+                printf("%zu): ", t->dims[d]);
+            } else { printf("%zux", t->dims[d]); }
         }
         print_raw(t);
         return;

@@ -65,10 +65,12 @@ lenet* load_lenet(const char* checkpoint){
    
     // initialize tensors
     for (int i = 0; i < 10; i++){
-        int ndims_i = ndims[i];
-        int dims[ndims_i];
+        size_t ndims_i = ndims[i];
+        size_t dims[ndims_i];
+        int buf;
         for(int j=0; j<ndims_i; j++){
-            fread(dims + j, sizeof(int), 1, file);
+            fread(&buf, sizeof(int), 1, file);
+            dims[j] = (size_t) buf;
         }
         tensors[i] = init_tensor(ndims_i, dims, NULL);
     }
@@ -115,7 +117,7 @@ mnist_image* load_mnist(char* mnist_path){
 
 tensor_fp32* sse(int num_classes, int lbl, tensor_fp32* prediction){
     if (prediction->ndims != 2 || prediction->dims[0] != 1 || prediction->dims[1] != num_classes){
-        fprintf(stderr, "Expected shape (1, %d). Got %dD tensor with last dim shape %d\n", num_classes, prediction->ndims, prediction->dims[prediction->ndims-1]);
+        fprintf(stderr, "Expected shape (1, %d). Got %zuD tensor with last dim shape %zu\n", num_classes, prediction->ndims, prediction->dims[prediction->ndims-1]);
         exit(1);
     }
     tensor_fp32* lbl_tensor = T(1,num_classes);

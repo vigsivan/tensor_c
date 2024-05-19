@@ -80,13 +80,13 @@ def test_bias(tlib, net_bias):
     loss = torch.sum(output_arr)
     loss.backward()
 
-    InputShape = ctypes.c_int * 1
+    InputShape = ctypes.c_size_t * 1
     InputData = ctypes.c_float * 5
     input_shape = InputShape(5)
     input_data = InputData(1., 2., 3., 4., 5.)
     input_tensor = tlib.init_tensor(1,input_shape, input_data)
 
-    BiasShape = ctypes.c_int*1
+    BiasShape = ctypes.c_size_t*1
     BiasData = ctypes.c_float * 5
     bias_shape = BiasShape(5)
     bias_data = BiasData(6.,7.,8.,9.,10.,)
@@ -113,25 +113,25 @@ def test_backward_linear(tlib, net_lin_sig):
     loss = output_arr - target
     loss.backward()
 
-    InputShape = ctypes.c_int * 2
+    InputShape = ctypes.c_size_t * 2
     InputData = ctypes.c_float * 5
     input_shape = InputShape(1, 5)
     input_data = InputData(1., 2., 3., 4., 5.)
     input_tensor = tlib.init_tensor(2,input_shape, input_data)
 
-    WeightShape = ctypes.c_int * 2
+    WeightShape = ctypes.c_size_t * 2
     WeightData = ctypes.c_float * 5
     weight_shape = WeightShape(1, 5)
     weight_data = WeightData(*net.linear.weight.detach().numpy().squeeze().tolist())
     weight_tensor = tlib.init_tensor(2,weight_shape, weight_data)
 
-    BiasShape = ctypes.c_int * 1
+    BiasShape = ctypes.c_size_t * 1
     BiasData = ctypes.c_float * 1
     bias_shape = BiasShape(1)
     bias_data = BiasData(net.linear.bias.detach().numpy().squeeze().tolist())
     bias_tensor = tlib.init_tensor(1,bias_shape, bias_data)
 
-    TargetShape = ctypes.c_int * 2
+    TargetShape = ctypes.c_size_t * 2
     TargetData = ctypes.c_float * 1
     target_shape = TargetShape(1,1)
     target_data = TargetData(1.)
@@ -162,37 +162,37 @@ def test_backward_conv(tlib, net_conv_lin_sig):
     loss = output_arr - target
     loss.backward()
 
-    InputShape = ctypes.c_int * 4
+    InputShape = ctypes.c_size_t * 4
     InputData = ctypes.c_float * 25
     input_shape = InputShape(1, 1, 5, 5)
     input_data = InputData(*input_arr.numpy().reshape(-1,1).squeeze().tolist())
     input_tensor = tlib.init_tensor(4,input_shape, input_data)
 
-    ConvWShape = ctypes.c_int * 4
+    ConvWShape = ctypes.c_size_t * 4
     ConvWData = ctypes.c_float * 18
     convw_shape = ConvWShape(2, 1, 3, 3)
     convw_data = ConvWData(*net.conv.weight.detach().numpy().reshape(-1,1).squeeze().tolist())
     convw_tensor = tlib.init_tensor(4, convw_shape, convw_data)
 
-    ConvBShape = ctypes.c_int * 1
+    ConvBShape = ctypes.c_size_t * 1
     ConvBData = ctypes.c_float * 2
     convb_shape = ConvBShape(2)
     convb_data = ConvBData(*net.conv.bias.detach().numpy().squeeze().tolist())
     convb_tensor = tlib.init_tensor(1, convb_shape, convb_data)
 
-    WeightShape = ctypes.c_int * 2
+    WeightShape = ctypes.c_size_t * 2
     WeightData = ctypes.c_float * 18
     weight_shape = WeightShape(1, 18)
     weight_data = WeightData(*net.linear.weight.detach().numpy().squeeze().tolist())
     weight_tensor = tlib.init_tensor(2,weight_shape, weight_data)
 
-    BiasShape = ctypes.c_int * 1
+    BiasShape = ctypes.c_size_t * 1
     BiasData = ctypes.c_float * 1
     bias_shape = BiasShape(1)
     bias_data = BiasData(net.linear.bias.detach().numpy().squeeze().tolist())
     bias_tensor = tlib.init_tensor(1,bias_shape, bias_data)
 
-    TargetShape = ctypes.c_int * 2
+    TargetShape = ctypes.c_size_t * 2
     TargetData = ctypes.c_float * 1
     target_shape = TargetShape(1,1)
     target_data = TargetData(1.)
@@ -238,49 +238,49 @@ def test_backward_conv2(tlib, net_conv_sig_conv_sig_lin_sig):
     loss = output_arr - target
     loss.backward()
 
-    InputShape = ctypes.c_int * 4
+    InputShape = ctypes.c_size_t * 4
     InputData = ctypes.c_float * 25
     input_shape = InputShape(1, 1, 5, 5)
     input_data = InputData(*input_arr.numpy().reshape(-1,1).squeeze().tolist())
     input_tensor = tlib.init_tensor(4,input_shape, input_data)
 
-    ConvW1Shape = ctypes.c_int * 4
+    ConvW1Shape = ctypes.c_size_t * 4
     ConvW1Data = ctypes.c_float * 18
     convw1_shape = ConvW1Shape(2, 1, 3, 3)
     convw1_data = ConvW1Data(*net.conv1.weight.detach().numpy().reshape(-1,1).squeeze().tolist())
     convw1_tensor = tlib.init_tensor(4, convw1_shape, convw1_data)
 
-    ConvB1Shape = ctypes.c_int * 1
+    ConvB1Shape = ctypes.c_size_t * 1
     ConvB1Data = ctypes.c_float * 2
     convb1_shape = ConvB1Shape(2)
     convb1_data = ConvB1Data(*net.conv1.bias.detach().numpy().squeeze().tolist())
     convb1_tensor = tlib.init_tensor(1, convb1_shape, convb1_data)
 
-    ConvWShape = ctypes.c_int * 4
+    ConvWShape = ctypes.c_size_t * 4
     ConvWData = ctypes.c_float * 36
     convw_shape = ConvWShape(2, 2, 3, 3)
     convw_data = ConvWData(*net.conv2.weight.detach().numpy().reshape(-1,1).squeeze().tolist())
     convw_tensor = tlib.init_tensor(4, convw_shape, convw_data)
 
-    ConvBShape = ctypes.c_int * 1
+    ConvBShape = ctypes.c_size_t * 1
     ConvBData = ctypes.c_float * 2
     convb_shape = ConvBShape(2)
     convb_data = ConvBData(*net.conv2.bias.detach().numpy().squeeze().tolist())
     convb_tensor = tlib.init_tensor(1, convb_shape, convb_data)
 
-    WeightShape = ctypes.c_int * 2
+    WeightShape = ctypes.c_size_t * 2
     WeightData = ctypes.c_float * 18
     weight_shape = WeightShape(1, 18)
     weight_data = WeightData(*net.linear.weight.detach().numpy().squeeze().tolist())
     weight_tensor = tlib.init_tensor(2,weight_shape, weight_data)
 
-    BiasShape = ctypes.c_int * 1
+    BiasShape = ctypes.c_size_t * 1
     BiasData = ctypes.c_float * 1
     bias_shape = BiasShape(1)
     bias_data = BiasData(net.linear.bias.detach().numpy().squeeze().tolist())
     bias_tensor = tlib.init_tensor(1,bias_shape, bias_data)
 
-    TargetShape = ctypes.c_int * 2
+    TargetShape = ctypes.c_size_t * 2
     TargetData = ctypes.c_float * 1
     target_shape = TargetShape(1,1)
     target_data = TargetData(1.)
