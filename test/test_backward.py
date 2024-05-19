@@ -193,11 +193,13 @@ def test_backward_conv(tlib, net_conv_lin_sig):
     assert (cwgrad := convw_tensor.contents.gradient)
     assert (cbgrad := convb_tensor.contents.gradient)
 
-    assert wgrad.contents.size == 18
-    assert bgrad.contents.size == 1
+    assert cwgrad.contents.size == 18
+    assert cbgrad.contents.size == 2
 
     conv_grad = net.conv.weight.grad.reshape(1,-1)
     for i in range(cwgrad.contents.size):
         assert np.allclose(cwgrad.contents.data[i], conv_grad[0,i].item(), atol=1e-4)
 
     assert np.allclose(cbgrad.contents.data[0], net.conv.bias.grad[0].item(), atol=1e-4)
+    assert np.allclose(cbgrad.contents.data[1], net.conv.bias.grad[1].item(), atol=1e-4)
+
