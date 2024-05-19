@@ -936,11 +936,9 @@ void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, te
     int ho = t->dims[2];
     int hin = out->dims[2];
     int kh = kw->dims[2];
-    int p = (int) ceilf(0.5 * (ho*(s+1) + 1 + (kh-1) - hin));
+    int p = (int) floor(0.5 * (s*(ho-1) + 1 + (kh-1) - hin));
     t->gradient = op_fp32conv2d(out->gradient, kernel, NULL, 1, p);
 
-    // int ho = floor((t->dims[2] + 2 * padding - (k->dims[2]-1)-1)/stride + 1);
-    // int wo = floor((t->dims[3] + 2 * padding - (k->dims[3]-1)-1)/stride + 1);
 
 
 }
