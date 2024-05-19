@@ -986,7 +986,7 @@ void backwardop_fp32sigmoid(tensor_fp32* t){
     tensor_fp32* child = t->children[0];
     child->gradient = init_tensor(t->ndims, t->dims, NULL);
     for (int i=0; i < t->size; i++){
-        child->gradient->data[i] = t->data[i] * (1 - t->data[i]);
+        child->gradient->data[i] = t->data[i] * (1 - t->data[i]) * t->gradient->data[i];
     }
 }
 
