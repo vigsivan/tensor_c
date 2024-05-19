@@ -78,36 +78,6 @@ void free_tensor(tensor_fp32* t){
     free(t);
 }
 
-int get_num_children(Op op){
-    switch (op) {
-        case Op_none:
-            return 0;
-        case Op_fp32mul:
-        case Op_fp32add:
-        case Op_fp32sub:
-        case Op_fp32dot:
-            return 2;
-
-        case Op_fp32linear:
-        case Op_fp32conv2d:
-            return 3;
-
-        case Op_fp32pad2d:
-        case Op_fp32maxpool2d:
-        case Op_fp32avgpool2d:
-        case Op_fp32relu:
-        case Op_fp32sigmoid:
-        case Op_fp32flatten:
-        case Op_fp32total:
-        case Op_fp32sumaxis:
-        case Op_scalarfp32exp:
-        case Op_scalarfp32mul:
-        case Op_scalarfp32pad2d:
-            return 1;
-
-    }
-}
-
 void backward(tensor_fp32* t){
     if (t->op == Op_none) {
         fprintf(stderr, "Tensor has op_none, cannot compute backward\n");
@@ -190,7 +160,11 @@ void recursive_backprop(tensor_fp32* t){
                     break;
                 }
             case Op_fp32pad2d:
-                // Next
+                {
+                    backwardop_fp32pad2d(t);
+                    recursive_backprop(t->children[0]);
+                    break;
+                }
             case Op_fp32mul:
             case Op_fp32dot:
             case Op_fp32maxpool2d:
@@ -295,7 +269,13 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
         exit(1);
     }
     tensor_fp32* padded = T(t->dims[0],t->dims[1],(padh*2)+t->dims[2],(padw*2)+t->dims[3]);
-    register(padded, Op_fp32pad2d, t);
+    tensor_fp32* pad_tensor = T(3);
+
+    pad_tensor->data[0] = padh;
+    pad_tensor->data[1] = padw;
+    pad_tensor->data[2] = padval;
+
+    register(padded, Op_fp32pad2d, t, pad_tensor);
     scalarop_inplace_fp32add(padded, padval);
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c<t->dims[1]; c++){
@@ -654,15 +634,11 @@ tensor_fp32* bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride){
     tensor_fp32* out = T(out_channels, in_channels, ho, wo);
 
     for (int cout=0; cout < out_channels; cout++){
-    // for (int n = 0; n < batch; n++){
         for (int h = laddh; h < t->dims[2]-raddh; h+=stride){
             for (int w = laddw; w < t->dims[3]-raddw; w+=stride){
-                // for (int cout=0; cout < out_channels; cout++){
-                // for (int n = 0; n < batch; n++){
                 for (int cin=0; cin < in_channels; cin++){
                     float agg = 0;
                     for (int n = 0; n < batch; n++){
-                    // for (int cin=0; cin < in_channels; cin++){
                         for(int hk=0; hk<g->dims[2]; hk++){
                             for(int wk=0; wk<g->dims[3]; wk++){
                                 agg += getindex(g, n, cout, hk, wk) * 
@@ -921,8 +897,7 @@ void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, te
     for (int cout=0; cout < kw->dims[0]; cout++){
         for (int cin=0; cin < kw->dims[1]; cin++){
             for (int h=0; h < kw->dims[2]; h++){
-                for (int w=0; w < kw->dims[3]; w++){
-                    setindex(kernel, 
+                for (int w=0; w < kw->dims[3]; w++){ setindex(kernel, 
                             getindex(kw, cout, cin, h, w), 
                             cin, cout, kw->dims[2]-h-1, kw->dims[3]-w-1);
                 }
@@ -939,8 +914,26 @@ void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, te
     int p = (int) floor(0.5 * (s*(ho-1) + 1 + (kh-1) - hin));
     t->gradient = op_fp32conv2d(out->gradient, kernel, NULL, 1, p);
 
+}
 
+void backwardop_fp32pad2d(tensor_fp32* t){
+    tensor_fp32* unpadded = t->children[0];
+    tensor_fp32* pad_params = t->children[1];
+    int padh = pad_params->data[0];
+    int padw = pad_params->data[1];
 
+    unpadded->gradient = init_tensor(unpadded->ndims, unpadded->dims, NULL);
+    for (int n = 0; n < unpadded->dims[0]; n++){
+        for (int c = 0; c < unpadded->dims[1]; c++){
+            for (int h = padh; h < unpadded->dims[2]-padh; h++){
+                for (int w = padw; w < unpadded->dims[2]-padw; w++){
+                    setindex(unpadded->gradient, 
+                            getindex(t->gradient, n, c, h, w),
+                            n, c, h-padh, w-padw);
+                }
+            }
+        }
+    }
 }
 
 void backwardop_fp32flatten(tensor_fp32* t){

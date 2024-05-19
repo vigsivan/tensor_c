@@ -119,6 +119,7 @@ void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, te
 // helper method for backward op
 tensor_fp32*  bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride);
 void backwardop_fp32flatten(tensor_fp32* t);
+void backwardop_fp32pad2d(tensor_fp32* t);
 
 
 /*
@@ -134,24 +135,3 @@ void print_2d(tensor_fp32* t);
 void print_linear(tensor_fp32* t);
 void print_raw(tensor_fp32* t);
 char* get_shape_str(tensor_fp32* t);
-
-/*
- * Stack
- */
-
-typedef struct {
-    int size;
-    int capacity;
-    tensor_fp32** items;
-} stack;
-
-inline tensor_fp32* pop(stack* st){
-    if (st->size == 0) {
-        return NULL;
-    }
-    else{
-        st->size -= 1;
-        return st->items[st->size];
-    }
-
-}
