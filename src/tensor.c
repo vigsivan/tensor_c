@@ -143,13 +143,10 @@ void recursive_backprop(tensor_fp32* t){
                 }
             case Op_fp32conv2d:
                 {
-                    tensor_fp32* inp = t->children[0];
-                    tensor_fp32* kw = t->children[1];
-                    tensor_fp32* kb = t->children[2];
-                    backwardop_fp32conv2d(t, inp, kw, kb);
-                    recursive_backprop(kw);
-                    recursive_backprop(kb);
-                    recursive_backprop(inp);
+                    backwardop_fp32conv2d(t);
+                    recursive_backprop(t->children[1]);
+                    recursive_backprop(t->children[2]);
+                    recursive_backprop(t->children[0]);
                     break;
                 }
 
@@ -537,7 +534,10 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
     int kernel_size = k->dims[2] * k->dims[3];
     tensor_fp32* out = T(t->dims[0], out_channels, ho, wo);
 
-    register(out, Op_fp32conv2d, t, k, b);
+    tensor_fp32* stride_tensor = T(1);
+    stride_tensor->data[0] = stride;
+
+    register(out, Op_fp32conv2d, t, k, b, stride_tensor);
 
     for (int n = 0; n < batch; n++){
         for (int h = laddh; h < t->dims[2]-raddh; h+=stride){
@@ -570,14 +570,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
 }
 
 /*
- * Implements 2D convolution (note: actually, correlation) naively.
- * This function is only implemented for a single filter.
- * output tensor has shape (Cout, Cin, hk, wk) (output shape depends on padding)
- * this function is probably really inefficient.
- * t: input tensor with shape (N, Cin, H, W)
- * g: gradient tensor with shape (N, Cout, ho, wo)
- * stride: stride of convolution
- * padding: padding of convolution. Note: only 0-padding is supported
+ * Helper function for backward pass of conv2d
  */
 tensor_fp32* bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride){
     if(t->ndims != 4){
@@ -600,6 +593,9 @@ tensor_fp32* bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride){
 
     // TODO: look at this
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
+    if (stride > 1) {
+        fprintf(stderr, "Strided convolution backprop not yet supported\n");
+    }
     int ho = floor((t->dims[2] + 2 * padding - (g->dims[2]-1)-1)/stride + 1);
     int wo = floor((t->dims[3] + 2 * padding - (g->dims[3]-1)-1)/stride + 1);
 
@@ -846,7 +842,12 @@ tensor_fp32* op_fp32total(tensor_fp32* t){
  * Backprop
  **************************************************/
 
-void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, tensor_fp32* kb){
+void backwardop_fp32conv2d(tensor_fp32* out){
+    tensor_fp32* t = out->children[0];
+    tensor_fp32* kw = out->children[1];
+    tensor_fp32* kb = out->children[2];
+    tensor_fp32* str = out->children[3];
+    int stride = (int) str->data[0];
     if (kb != NULL){
         kb->gradient = init_tensor(kb->ndims, kb->dims, NULL);
         for (int cout = 0; cout < kb->dims[0]; cout++){
@@ -862,7 +863,7 @@ void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, te
         }
     }
     // TODO: how to incorporate stride?
-    kw->gradient = bop_fp32conv2d(t, out->gradient, 1);
+    kw->gradient = bop_fp32conv2d(t, out->gradient, stride);
 
     // rotate by 180 degrees (i.e. perform correlation)
     // and switch axes
@@ -880,11 +881,10 @@ void backwardop_fp32conv2d(tensor_fp32* out, tensor_fp32* t, tensor_fp32* kw, te
 
     // TODO: check padding
     // FIXME: assuming stride is 1
-    int s = 1;
     int ho = t->dims[2];
     int hin = out->dims[2];
     int kh = kw->dims[2];
-    int p = (int) floor(0.5 * (s*(ho-1) + 1 + (kh-1) - hin));
+    int p = (int) floor(0.5 * (stride*(ho-1) + 1 + (kh-1) - hin));
     t->gradient = op_fp32conv2d(out->gradient, kernel, NULL, 1, p);
 
 }
