@@ -87,7 +87,7 @@ void backward(tensor_fp32* t){
         fprintf(stderr, "Can only call backward on a one-item tensor\n");
         exit(1);
     }
-    t->gradient = ones(1);
+    t->gradient = ONES(1);
     recursive_backprop(t);
 }
 
@@ -243,7 +243,7 @@ tensor_fp32* scalarop_fp32mul(tensor_fp32* t, float scalar){
 	}
     tensor_fp32* S = T(1);
     S->data[0] = scalar;
-    register(t2, Op_scalarfp32mul, t, S);
+    REGISTER(t2, Op_scalarfp32mul, t, S);
     return t2;
 }
 
@@ -254,7 +254,7 @@ tensor_fp32* scalarop_fp32exp(tensor_fp32* t, float scalar){
 	}
     tensor_fp32* S = T(1);
     S->data[0] = scalar;
-    register(t2, Op_scalarfp32exp, t, S);
+    REGISTER(t2, Op_scalarfp32exp, t, S);
     return t2;
 }
 
@@ -271,19 +271,19 @@ tensor_fp32* scalarop_fp32pad2d(tensor_fp32* t, int padh, int padw, float padval
     pad_tensor->data[1] = padw;
     pad_tensor->data[2] = padval;
 
-    register(padded, Op_fp32pad2d, t, pad_tensor);
+    REGISTER(padded, Op_fp32pad2d, t, pad_tensor);
     scalarop_inplace_fp32add(padded, padval);
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c<t->dims[1]; c++){
             for (int h=0; h<t->dims[2]; h++){
                 for (int w=0; w<t->dims[3]; w++){
-                    // setindex(padded,getindex(t, n, c, h, w), n, c, h+padh, w+padh) = ;
+                    // SET(padded,GET(t, n, c, h, w), n, c, h+padh, w+padh) = ;
                     padded->data[
                         (n * padded->dims[1] * padded->dims[2] * padded->dims[3]) +
                         (c * padded->dims[2] * padded->dims[3]) +
                         ((h+padh) * padded->dims[3]) + 
                         w+padh
-                    ] = getindex(t, n, c, h, w);
+                    ] = GET(t, n, c, h, w);
                 }
             }
         }
@@ -349,7 +349,7 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
     }
 
     tensor_fp32* out = T(t->dims[0], t->dims[1], ho, wo);
-    register(out, Op_fp32avgpool2d, t);
+    REGISTER(out, Op_fp32avgpool2d, t);
 
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c < t-> dims[1]; c++) {
@@ -359,7 +359,7 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
                     int count = 0;
                     for (int kh=h-laddh; kh <= h + raddh; kh++){
                         for (int kw=w-laddw; kw <= w + raddw; kw++){
-                            agg += getindex(t,n,c,kh,kw);
+                            agg += GET(t,n,c,kh,kw);
                             count += 1;
                         }
                     }
@@ -367,7 +367,7 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
                     float avg = agg / count;
                     int hindex = floor((h-laddh)/stride);
                     int windex = floor((w-laddw)/stride);
-                    setindex(out, avg, n, c, hindex, windex);
+                    SET(out, avg, n, c, hindex, windex);
                 }
             }
         }
@@ -442,15 +442,15 @@ tensor_fp32* op_fp32maxpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
                     float max_val = -INFINITY;
                     for (int kh=h-laddh; kh <= h + raddh; kh++){
                         for (int kw=w-laddw; kw <= w + raddw; kw++){
-                            if (getindex(t,n,c,kh,kw) > max_val){
-                                max_val = getindex(t,n,c,kh,kw);
+                            if (GET(t,n,c,kh,kw) > max_val){
+                                max_val = GET(t,n,c,kh,kw);
                             }
                         }
                     }
 
                     int hindex = floor((h-laddh)/stride);
                     int windex = floor((w-laddw)/stride);
-                    setindex(out, max_val, n, c, hindex, windex);
+                    SET(out, max_val, n, c, hindex, windex);
                 }
             }
         }
@@ -537,7 +537,7 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
     tensor_fp32* stride_tensor = T(1);
     stride_tensor->data[0] = stride;
 
-    register(out, Op_fp32conv2d, t, k, b, stride_tensor);
+    REGISTER(out, Op_fp32conv2d, t, k, b, stride_tensor);
 
     for (int n = 0; n < batch; n++){
         for (int h = laddh; h < t->dims[2]-raddh; h+=stride){
@@ -547,18 +547,18 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
                     for (int cin=0; cin < in_channels; cin++){
                         for(int hk=0; hk<k->dims[2]; hk++){
                             for(int wk=0; wk<k->dims[3]; wk++){
-                                agg += getindex(k, cout, cin, hk, wk) * 
-                                    getindex(t, n, cin, h+hk-laddh, w+wk-laddw);
+                                agg += GET(k, cout, cin, hk, wk) * 
+                                    GET(t, n, cin, h+hk-laddh, w+wk-laddw);
                             }
                         }
                     }
 
                     if (b != NULL){
-                        agg += getindex(b, cout);
+                        agg += GET(b, cout);
                     }
                     int hindex = floor((h-laddh)/stride);
                     int windex = floor((w-laddw)/stride);
-                    setindex(out, agg, n, cout, hindex, windex);
+                    SET(out, agg, n, cout, hindex, windex);
 
                 }
             }
@@ -636,15 +636,15 @@ tensor_fp32* bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride){
                     for (int n = 0; n < batch; n++){
                         for(int hk=0; hk<g->dims[2]; hk++){
                             for(int wk=0; wk<g->dims[3]; wk++){
-                                agg += getindex(g, n, cout, hk, wk) * 
-                                    getindex(t, n, cin, h+hk-laddh, w+wk-laddw);
+                                agg += GET(g, n, cout, hk, wk) * 
+                                    GET(t, n, cin, h+hk-laddh, w+wk-laddw);
                             }
                         }
                     }
 
                     int hindex = floor((h-laddh)/stride);
                     int windex = floor((w-laddw)/stride);
-                    setindex(out, agg, cout, cin, hindex, windex);
+                    SET(out, agg, cout, cin, hindex, windex);
 
                 }
             }
@@ -670,7 +670,7 @@ tensor_fp32* op_fp32flatten(tensor_fp32* t){
         D *= t->dims[i];
     }
     tensor_fp32* out = T(t->dims[0], D);
-    register(out, Op_fp32flatten, t);
+    REGISTER(out, Op_fp32flatten, t);
     memcpy(out->data, t->data, sizeof(float) * t->size);
     return out;
 }
@@ -684,7 +684,7 @@ tensor_fp32* op_fp32transposelinear(tensor_fp32* t){
     tensor_fp32* out = init_tensor(2, new_shape, NULL);
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < t->dims[1]; c++){
-            setindex(out, getindex(t, n, c), c, n);
+            SET(out, GET(t, n, c), c, n);
         }
     }
     return out;
@@ -709,7 +709,7 @@ tensor_fp32* op_fp32relu(tensor_fp32* t){
 
 tensor_fp32* op_fp32sigmoid(tensor_fp32* t){
     tensor_fp32* out = init_tensor(t->ndims, t->dims, NULL);
-    register(out, Op_fp32sigmoid, t);
+    REGISTER(out, Op_fp32sigmoid, t);
     for (int i=0; i < t->size; i++){
         out->data[i] = 1 / (1 + exp(-1 * t->data[i]));
     }
@@ -751,7 +751,7 @@ tensor_fp32* op_fp32add(tensor_fp32* l, tensor_fp32* r){
     for(int i=0; i<t->size; i++){
         t->data[i] = l->data[i] + r->data[i];
     }
-    register(t, Op_fp32add, l, r);
+    REGISTER(t, Op_fp32add, l, r);
     return t;
 }
 
@@ -775,7 +775,7 @@ tensor_fp32* op_fp32sub(tensor_fp32* l, tensor_fp32* r){
     for(int i=0; i<size; i++){
     t->data[i] = l->data[i] - r->data[i];
     }
-    register(t, Op_fp32sub, l, r);
+    REGISTER(t, Op_fp32sub, l, r);
     return t;
 }
 
@@ -811,18 +811,18 @@ tensor_fp32* op_fp32linear(tensor_fp32* t, tensor_fp32* w, tensor_fp32* b){
         exit(1);
     }
     tensor_fp32* out = T(t->dims[0], w_t->dims[1]);
-    register(out, Op_fp32linear, t, w, b);
+    REGISTER(out, Op_fp32linear, t, w, b);
 
     for (int n=0; n < t->dims[0]; n++){
         for (int c=0; c < w_t->dims[1]; c++){
             float res = 0;
             for (int i=0; i < t->dims[1]; i++){
-                res += getindex(t, n, i) * getindex(w_t, i, c);
+                res += GET(t, n, i) * GET(w_t, i, c);
             }
             if (b != NULL){
                 res += b->data[c];
             }
-            setindex(out, res, n, c);
+            SET(out, res, n, c);
         }
     }
     free_tensor(w_t);
@@ -834,7 +834,7 @@ tensor_fp32* op_fp32total(tensor_fp32* t){
     for (int i = 0; i < t-> size; i++){
         out->data[0] += t->data[i];
     }
-    register(out, Op_fp32total, t);
+    REGISTER(out, Op_fp32total, t);
     return out;
 }
 
@@ -855,7 +855,7 @@ void backwardop_fp32conv2d(tensor_fp32* out){
             for (int n = 0; n < out->dims[0]; n++){
                 for (int h = 0; h < out->dims[2]; h++){
                     for (int w = 0; w < out->dims[3]; w++){
-                        kb->gradient->data[cout] += getindex(out->gradient, n, cout, h, w);
+                        kb->gradient->data[cout] += GET(out->gradient, n, cout, h, w);
                     }
                 }
             }
@@ -871,8 +871,8 @@ void backwardop_fp32conv2d(tensor_fp32* out){
     for (int cout=0; cout < kw->dims[0]; cout++){
         for (int cin=0; cin < kw->dims[1]; cin++){
             for (int h=0; h < kw->dims[2]; h++){
-                for (int w=0; w < kw->dims[3]; w++){ setindex(kernel, 
-                            getindex(kw, cout, cin, h, w), 
+                for (int w=0; w < kw->dims[3]; w++){ SET(kernel, 
+                            GET(kw, cout, cin, h, w), 
                             cin, cout, kw->dims[2]-h-1, kw->dims[3]-w-1);
                 }
             }
@@ -900,8 +900,8 @@ void backwardop_fp32pad2d(tensor_fp32* t){
         for (int c = 0; c < unpadded->dims[1]; c++){
             for (int h = padh; h < unpadded->dims[2]-padh; h++){
                 for (int w = padw; w < unpadded->dims[2]-padw; w++){
-                    setindex(unpadded->gradient, 
-                            getindex(t->gradient, n, c, h, w),
+                    SET(unpadded->gradient, 
+                            GET(t->gradient, n, c, h, w),
                             n, c, h-padh, w-padw);
                 }
             }
@@ -979,7 +979,7 @@ void print_2d(tensor_fp32* t){
                 else{ printf("| "); }
 
                 for (int w=0; w<t->dims[3]; w++){
-                    printf("%f\t", getindex(t, n, c, h, w));
+                    printf("%f\t", GET(t, n, c, h, w));
                 }
 
                 if (h == 0){ printf("⎤\n"); }
@@ -1007,7 +1007,7 @@ void print_linear(tensor_fp32* t){
         else if (n==t->dims[0]-1){ printf("⎣ "); }
         else{ printf("| "); }
         for (int c=0; c < t->dims[1]; c++){
-            printf("%f ", getindex(t, n, c));
+            printf("%f ", GET(t, n, c));
         }
         if (n == 0){ printf("⎤\n"); }
         else if (n==t->dims[0]-1){ printf("⎦\n"); }

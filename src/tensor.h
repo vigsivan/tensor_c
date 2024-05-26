@@ -1,14 +1,14 @@
 #pragma once
 #include <stdlib.h>
 #include <stdio.h>
-#define getindex(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
-#define setindex(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
+
+#define GET(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
+#define SET(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
 #define NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 #define T(...) init_empty_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
-#define ones(...) init_ones_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
-#define rand(...) init_random_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
-
-#define register(t,operation,...)                                                    \
+#define ONES(...) init_ones_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
+#define RAND(...) init_random_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
+#define REGISTER(t,operation,...)                                                    \
     do {                                                                             \
         int ntensors = (sizeof((tensor_fp32*[]){__VA_ARGS__})/sizeof(tensor_fp32*)); \
         register_op(t, operation, ntensors, __VA_ARGS__);                            \
