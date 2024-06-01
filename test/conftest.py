@@ -1,6 +1,9 @@
 import pytest
 import ctypes
 from ctypes import CDLL
+from typing import List, Union
+import numpy as np
+import torch
 
 @pytest.fixture(scope="module")
 def tlib():
@@ -39,6 +42,38 @@ def tlib():
 
     tlib.backward.argtypes = [TPOINTER]
 
+    return tlib
 
+@pytest.fixture(scope="module")
+def create_ctensor(tlib):
+    def create(inp: Union[np.ndarray, torch.Tensor, List, torch.nn.Module], *shape):
+        if isinstance(inp, torch.nn.Module):
+            ret = {}
+            for key, val in inp.state_dict().items():
+                ret[key] = create(val, *val.shape)
+            return ret
 
-    yield tlib
+        if isinstance(inp, np.ndarray):
+            inp = inp.reshape(-1).tolist()
+        elif isinstance(inp, torch.Tensor):
+            inp = inp.detach().numpy().reshape(-1).tolist()
+            
+        if not isinstance(inp, list):
+            inp = [inp]
+
+        size = np.prod(shape).item()
+        Shape = ctypes.c_size_t * len(shape)
+        Data = ctypes.c_float * size
+        shap = Shape(*shape)
+        data = Data(*inp)
+        return tlib.init_tensor(len(shape), shap, data)
+    return create
+
+@pytest.fixture(scope="module")
+def ctensors_from_torch_network(create_ctensor):
+    def fromtorch(net: torch.nn.Module):
+        ret = {}
+        for key, val in net.state_dict().items():
+            ret[key] = create_ctensor(val, *val.shape)
+        return ret
+    return fromtorch
