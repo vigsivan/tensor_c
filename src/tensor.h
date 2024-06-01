@@ -1,6 +1,7 @@
 #pragma once
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #define GET(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
 #define SET(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
@@ -42,6 +43,7 @@ typedef struct tensor_fp32{
     Op op;
     struct tensor_fp32* gradient;
     struct tensor_fp32** children;
+    bool requires_grad;
 } tensor_fp32;
 
 /*

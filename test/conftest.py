@@ -15,6 +15,7 @@ def tlib():
         ("op", ctypes.c_int),
         ("gradient", ctypes.POINTER(TensorFP32)),
         ("children", ctypes.POINTER(ctypes.POINTER(TensorFP32))),
+        ("requires_grad", ctypes.c_bool)
     ]
 
     TPOINTER = ctypes.POINTER(TensorFP32)

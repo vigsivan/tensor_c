@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "tensor.h"
 #include "string.h"
+#include "tensor.h"
 
 /**************************************************
  * Constructor and destructor
@@ -29,6 +29,7 @@ tensor_fp32* init_tensor(size_t ndims, size_t* dims, float* data){
     t->gradient = NULL;
     Op op=Op_none;
     t->children = NULL;
+    t->requires_grad=false;
     
     return t;
 }
@@ -79,6 +80,11 @@ void free_tensor(tensor_fp32* t){
 }
 
 void backward(tensor_fp32* t){
+    // Uncomment this when the time is right
+    // if (!t->requires_grad){
+    //     fprintf(stderr, "Backward called for tensor that does not require gradient\n");
+    //     exit(1);
+    // }
     if (t->op == Op_none) {
         fprintf(stderr, "Tensor has op_none, cannot compute backward\n");
         exit(1);
