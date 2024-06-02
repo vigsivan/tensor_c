@@ -36,7 +36,6 @@ def tlib():
     tlib.op_fp32sub.argtypes = [TPOINTER,TPOINTER]
     tlib.op_fp32sub.restype = TPOINTER
 
-
     tlib.op_fp32total.argtypes = [TPOINTER]
     tlib.op_fp32total.restype = TPOINTER
 
@@ -46,16 +45,20 @@ def tlib():
 
 @pytest.fixture(scope="module")
 def create_ctensor(tlib):
-    def create(inp: Union[np.ndarray, torch.Tensor, List, torch.nn.Module], *shape):
+    def create(inp: Union[np.ndarray, torch.Tensor, List, torch.nn.Module], *shape, **kwargs):
+        requires_grad = kwargs.pop("requires_grad", False)
+
         if isinstance(inp, torch.nn.Module):
             ret = {}
             for key, val in inp.state_dict().items():
-                ret[key] = create(val, *val.shape)
+                ret[key] = create(val, *val.shape, requires_grad=requires_grad)
             return ret
 
         if isinstance(inp, np.ndarray):
             inp = inp.reshape(-1).tolist()
+
         elif isinstance(inp, torch.Tensor):
+            requires_grad = requires_grad or inp.requires_grad
             inp = inp.detach().numpy().reshape(-1).tolist()
             
         if not isinstance(inp, list):
@@ -66,7 +69,10 @@ def create_ctensor(tlib):
         Data = ctypes.c_float * size
         shap = Shape(*shape)
         data = Data(*inp)
-        return tlib.init_tensor(len(shape), shap, data)
+        tensor = tlib.init_tensor(len(shape), shap, data)
+        tensor.contents.requires_grad = requires_grad
+
+        return tensor
     return create
 
 @pytest.fixture(scope="module")

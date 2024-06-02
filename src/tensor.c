@@ -80,11 +80,10 @@ void free_tensor(tensor_fp32* t){
 }
 
 void backward(tensor_fp32* t){
-    // Uncomment this when the time is right
-    // if (!t->requires_grad){
-    //     fprintf(stderr, "Backward called for tensor that does not require gradient\n");
-    //     exit(1);
-    // }
+    if (!t->requires_grad){
+        fprintf(stderr, "Backward called for tensor that does not require gradient\n");
+        exit(1);
+    }
     if (t->op == Op_none) {
         fprintf(stderr, "Tensor has op_none, cannot compute backward\n");
         exit(1);
@@ -98,6 +97,9 @@ void backward(tensor_fp32* t){
 }
 
 void recursive_backprop(tensor_fp32* t){
+    if (!t->requires_grad){
+        return;
+    }
     if (t->gradient == NULL){
         fprintf(stderr, "Expect recursive gradient function to be called with gradient");
     }
@@ -235,6 +237,9 @@ void register_op(tensor_fp32* t, Op op, int nchildren, ...){
     t->op = op;
     for (int i =0; i < nchildren; i++){
         t->children[i] = va_arg(children, tensor_fp32*);
+        if (t->children[i]){
+            t->requires_grad |= t->children[i]->requires_grad;
+        }
     }
 }
 
