@@ -103,7 +103,7 @@ def net_bias():
 
     return BiasLayer()
 
-def test_bias(tlib, create_ctensor, net_bias):
+def test_bias(tlib, create_ctensor, check, net_bias):
     input_arr = torch.linspace(1, 5, 5)
     output_arr = net_bias(input_arr)
     loss = torch.sum(output_arr)
@@ -118,13 +118,9 @@ def test_bias(tlib, create_ctensor, net_bias):
 
     gradient = bias_tensor.contents.gradient
     expected = [1]*5
-    assert gradient, "Gradient is None"
-    assert gradient.contents.size == 5
-    for i in range(gradient.contents.size):
-        assert np.allclose(gradient.contents.data[i], expected[i], atol=1e-6)
+    check(gradient, expected)
 
-
-def test_backward_linear(tlib, create_ctensor, net_lin_sig):
+def test_backward_linear(tlib, create_ctensor, check_network, net_lin_sig):
     net = net_lin_sig
 
     input_arr = torch.linspace(1, 5, 5)
@@ -144,18 +140,9 @@ def test_backward_linear(tlib, create_ctensor, net_lin_sig):
     loss_out = tlib.op_fp32sub(act_out, target_tensor)
     tlib.backward(loss_out)
 
-    assert (wgrad := weight_tensor.contents.gradient)
-    assert (bgrad := bias_tensor.contents.gradient)
+    check_network(tensors, net, True)
 
-    assert wgrad.contents.size == 5
-    assert bgrad.contents.size == 1
-
-    for i in range(wgrad.contents.size):
-        assert np.allclose(wgrad.contents.data[i], net.linear.weight.grad[0,i].item(), atol=1e-4)
-
-    assert np.allclose(bgrad.contents.data[0], net.linear.bias.grad[0].item(), atol=1e-4)
-
-def test_backward_conv(tlib, create_ctensor, net_conv_lin_sig):
+def test_backward_conv(tlib, create_ctensor, check_network, net_conv_lin_sig):
     net = net_conv_lin_sig
 
     input_arr = torch.ones((1,1,5,5))
@@ -174,32 +161,10 @@ def test_backward_conv(tlib, create_ctensor, net_conv_lin_sig):
     act_out = tlib.op_fp32sigmoid(linear_out)
     loss_out = tlib.op_fp32sub(act_out, target_tensor)
     tlib.backward(loss_out)
+    check_network(cnet, net, True)
 
-    assert (wgrad := cnet['linear.weight'].contents.gradient)
-    assert (bgrad := cnet['linear.bias'].contents.gradient)
 
-    assert wgrad.contents.size == 18
-    assert bgrad.contents.size == 1
-
-    for i in range(wgrad.contents.size):
-        assert np.allclose(wgrad.contents.data[i], net.linear.weight.grad[0,i].item(), atol=1e-4)
-
-    assert np.allclose(bgrad.contents.data[0], net.linear.bias.grad[0].item(), atol=1e-4)
-
-    assert (cwgrad := cnet['conv.weight'].contents.gradient)
-    assert (cbgrad := cnet['conv.bias'].contents.gradient)
-
-    assert cwgrad.contents.size == 18
-    assert cbgrad.contents.size == 2
-
-    conv_grad = net.conv.weight.grad.reshape(1,-1)
-    for i in range(cwgrad.contents.size):
-        assert np.allclose(cwgrad.contents.data[i], conv_grad[0,i].item(), atol=1e-4)
-
-    assert np.allclose(cbgrad.contents.data[0], net.conv.bias.grad[0].item(), atol=1e-4)
-    assert np.allclose(cbgrad.contents.data[1], net.conv.bias.grad[1].item(), atol=1e-4)
-
-def test_backward_conv2(tlib, create_ctensor, net_conv_sig_conv_sig_lin_sig):
+def test_backward_conv2(tlib, create_ctensor, check_network, net_conv_sig_conv_sig_lin_sig):
     net = net_conv_sig_conv_sig_lin_sig
 
     input_arr = torch.ones((1,1,5,5))
@@ -221,43 +186,7 @@ def test_backward_conv2(tlib, create_ctensor, net_conv_sig_conv_sig_lin_sig):
     act_out     = tlib.op_fp32sigmoid(linear_out)
     loss_out    = tlib.op_fp32sub(act_out, target_tensor)
     tlib.backward(loss_out)
-
-    assert np.allclose(loss.item(), loss_out.contents.data[0])
-
-    assert (wgrad := cnet['linear.weight'].contents.gradient)
-    assert (bgrad := cnet['linear.bias'].contents.gradient)
-
-    assert wgrad.contents.size == 18
-    assert bgrad.contents.size == 1
-
-    for i in range(wgrad.contents.size):
-        assert np.allclose(wgrad.contents.data[i], net.linear.weight.grad[0,i].item(), atol=1e-4)
-
-    assert np.allclose(bgrad.contents.data[0], net.linear.bias.grad[0].item(), atol=1e-4)
-
-    assert (cwgrad := cnet['conv2.weight'].contents.gradient)
-    assert (cbgrad := cnet['conv2.bias'].contents.gradient)
-
-    assert cwgrad.contents.size == 36
-    assert cbgrad.contents.size == 2
-
-    conv_grad = net.conv2.weight.grad.reshape(1,-1)
-    for i in range(cwgrad.contents.size):
-        assert np.allclose(cwgrad.contents.data[i], conv_grad[0,i].item(), atol=1e-4)
-
-    assert np.allclose(cbgrad.contents.data[0], net.conv2.bias.grad[0].item(), atol=1e-4)
-
-    assert (cwgrad := cnet['conv1.weight'].contents.gradient)
-    assert (cbgrad := cnet['conv1.bias'].contents.gradient)
-
-    assert cwgrad.contents.size == 18
-    assert cbgrad.contents.size == 2
-
-    conv_grad = net.conv1.weight.grad.reshape(1,-1)
-    for i in range(cwgrad.contents.size):
-        assert np.allclose(cwgrad.contents.data[i], conv_grad[0,i].item(), atol=1e-4)
-
-    assert np.allclose(cbgrad.contents.data[0], net.conv1.bias.grad[0].item(), atol=1e-4)
+    check_network(cnet, net, True)
 
 def test_backward_conv2_st(tlib, net_conv_sig_conv_sig_lin_sig_st2):
     net = net_conv_sig_conv_sig_lin_sig_st2

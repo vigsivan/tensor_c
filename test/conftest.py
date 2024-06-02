@@ -70,10 +70,33 @@ def create_ctensor(tlib):
     return create
 
 @pytest.fixture(scope="module")
-def ctensors_from_torch_network(create_ctensor):
-    def fromtorch(net: torch.nn.Module):
-        ret = {}
-        for key, val in net.state_dict().items():
-            ret[key] = create_ctensor(val, *val.shape)
-        return ret
-    return fromtorch
+def check():
+    def matches(a,b):
+        # a must be a tlib.Tensor pointer
+        # quick test to confirm
+        assert a.contents
+
+        # b can be a list, np array or pytorch Tensor
+        if isinstance(b, torch.Tensor):
+            b = b.detach().numpy().reshape(-1).tolist()
+        if isinstance(b, np.ndarray):
+            b = b.reshape(-1).tolist()
+
+        assert a.contents.size == len(b)
+        for i in range(len(b)):
+            assert np.allclose(a.contents.data[i], b[i], 1e-6)
+
+    return matches
+
+@pytest.fixture(scope="module")
+def check_network(check):
+    def matches(a, b, check_gradient: bool=False):
+        assert isinstance(a, dict), "Must be a dictionary of tensors"
+        assert isinstance(b, torch.nn.Module), "Must be a module"
+        for k, v in b.state_dict(keep_vars=True).items():
+            check(a[k], v)
+            if check_gradient:
+                assert a[k].contents.gradient
+                check(a[k].contents.gradient, v.grad)
+
+    return matches
