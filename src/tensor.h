@@ -15,6 +15,8 @@
         register_op(t, operation, ntensors, __VA_ARGS__);                            \
     } while(0)                                                                       \
 
+#define SCALAR(A) ({tensor_fp32* ret; ret = T(1); ret->data[0] = A; ret;})
+
 typedef enum {
     Op_none,
     Op_fp32mul,
@@ -119,6 +121,7 @@ void backwardop_fp32sigmoid(tensor_fp32* out);
 void backwardop_fp32conv2d(tensor_fp32* out);
 // helper method for backward op
 tensor_fp32*  bop_fp32conv2d(tensor_fp32* t, tensor_fp32* g, int stride);
+void backwardop_fp32avgpool2d(tensor_fp32* out);
 void backwardop_fp32flatten(tensor_fp32* t);
 void backwardop_fp32pad2d(tensor_fp32* t);
 

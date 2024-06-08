@@ -170,10 +170,15 @@ void recursive_backprop(tensor_fp32* t){
                     recursive_backprop(t->children[0]);
                     break;
                 }
+            case Op_fp32avgpool2d:
+                {
+                    backwardop_fp32avgpool2d(t);
+                    recursive_backprop(t->children[0]);
+                    break;
+                }
             case Op_fp32mul:
             case Op_fp32dot:
             case Op_fp32maxpool2d:
-            case Op_fp32avgpool2d:
             case Op_fp32relu:
             case Op_scalarfp32mul:
             case Op_scalarfp32pad2d:
@@ -237,6 +242,7 @@ void register_op(tensor_fp32* t, Op op, int nchildren, ...){
     t->op = op;
     for (int i =0; i < nchildren; i++){
         t->children[i] = va_arg(children, tensor_fp32*);
+        // Some children can be null (e.g. bias term)
         if (t->children[i]){
             t->requires_grad |= t->children[i]->requires_grad;
         }
@@ -360,7 +366,8 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
     }
 
     tensor_fp32* out = T(t->dims[0], t->dims[1], ho, wo);
-    REGISTER(out, Op_fp32avgpool2d, t);
+    tensor_fp32* stride_tensor = SCALAR(stride);
+    REGISTER(out, Op_fp32avgpool2d, t, stride_tensor);
 
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c < t-> dims[1]; c++) {
@@ -545,10 +552,10 @@ tensor_fp32* op_fp32conv2d(tensor_fp32* t, tensor_fp32* k, tensor_fp32* b, int s
     int kernel_size = k->dims[2] * k->dims[3];
     tensor_fp32* out = T(t->dims[0], out_channels, ho, wo);
 
-    tensor_fp32* stride_tensor = T(1);
-    stride_tensor->data[0] = stride;
+    // tensor_fp32* stride_tensor = T(1);
+    // stride_tensor->data[0] = stride;
 
-    REGISTER(out, Op_fp32conv2d, t, k, b, stride_tensor);
+    REGISTER(out, Op_fp32conv2d, t, k, b, SCALAR(stride));
 
     for (int n = 0; n < batch; n++){
         for (int h = laddh; h < t->dims[2]-raddh; h+=stride){
@@ -897,6 +904,10 @@ void backwardop_fp32conv2d(tensor_fp32* out){
     int kh = kw->dims[2];
     int p = (int) floor(0.5 * (stride*(ho-1) + 1 + (kh-1) - hin));
     t->gradient = op_fp32conv2d(out->gradient, kernel, NULL, 1, p);
+
+}
+
+void backwardop_fp32avgpool2d(tensor_fp32* out){
 
 }
 
