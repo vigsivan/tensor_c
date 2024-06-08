@@ -1,7 +1,5 @@
 import pytest
 import torch
-import ctypes
-import numpy as np
 
 @pytest.fixture()
 def net_conv_lin_sig():
