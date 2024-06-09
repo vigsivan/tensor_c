@@ -121,7 +121,7 @@ void recursive_backprop(tensor_fp32* t){
                     backwardop_fp32total(t);
                     recursive_backprop(t->children[0]);
                     break;
-                }
+                } 
             case Op_scalarfp32exp:
                 {
                     backwardop_scalarfp32exp(t);
@@ -366,8 +366,7 @@ tensor_fp32* op_fp32avgpool2d(tensor_fp32* t, int kh, int kw, int stride, int pa
     }
 
     tensor_fp32* out = T(t->dims[0], t->dims[1], ho, wo);
-    tensor_fp32* stride_tensor = SCALAR(stride);
-    REGISTER(out, Op_fp32avgpool2d, t, stride_tensor);
+    REGISTER(out, Op_fp32avgpool2d, t, SCALAR(kh), SCALAR(kw), SCALAR(stride));
 
     for (int n=0; n<t->dims[0]; n++){
         for (int c=0; c < t-> dims[1]; c++) {
@@ -908,7 +907,32 @@ void backwardop_fp32conv2d(tensor_fp32* out){
 }
 
 void backwardop_fp32avgpool2d(tensor_fp32* out){
+    tensor_fp32* child = out->children[0];
+    int kh = (int) out->children[1]->data[0];
+    int kw = (int) out->children[2]->data[0];
+    int stride = (int) out->children[3]->data[0];
 
+    if (stride != 1){
+        fprintf(stderr, "Cannot backprop with stride != 1 avgpool yet.\n");
+        exit(1);
+    }
+
+    int padh = 0.5*ceil((child->dims[2]-1)*stride + 1 + (kh-1) - out->dims[2]);
+    int padw = 0.5*ceil((child->dims[3]-1)*stride + 1 + (kw-1) - out->dims[3]);
+
+    tensor_fp32* padded_gradient = scalarop_fp32pad2d(out->gradient, padh, padw, 0);
+    child->gradient = op_fp32avgpool2d(padded_gradient, kh, kw, 1, 0);
+
+    if (child->gradient->ndims != child->ndims){
+        fprintf(stderr, "Avgpool gradient does not have the correct number of dimensions");
+        exit(1);
+    }
+    for (int i = 0; i < child->ndims; i++){
+        if (child->gradient->dims[i] != child->dims[i]){
+            fprintf(stderr, "Size mismatch: size of gradient does not match the input at index %d\n", i);
+            exit(1);
+        }
+    }
 }
 
 void backwardop_fp32pad2d(tensor_fp32* t){

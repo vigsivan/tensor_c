@@ -58,8 +58,6 @@ def net_conv_sig_conv_sig_lin_sig_st2():
 
         def forward(self, x):
             x1 = self.act(self.conv1(x))
-            x1.retain_grad()
-            x1.register_hook(self.set_grad(x1))
             x2 = self.act(self.conv2(x1))
             x2 = torch.flatten(x2)
             return self.act(self.linear(x2))
@@ -73,6 +71,25 @@ def net_conv_sig_conv_sig_lin_sig_st2():
     net = BasicNetwork()
     return net
 
+@pytest.fixture()
+def net_conv_sig_avgpool_lin_sig():
+    class BasicNetwork(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv1 = torch.nn.Conv2d(in_channels=1, out_channels=2, kernel_size=3, stride=1, padding=0)
+            self.avgpool = torch.nn.AvgPool2d(kernel_size=(2,2), stride=(1,1))
+            self.linear = torch.nn.Linear(50, 1)
+            self.act = torch.nn.Sigmoid()
+            self.intermediate_vars = []
+
+        def forward(self, x):
+            x1 = self.act(self.conv1(x))
+            x2 = self.avgpool(x1)
+            x2 = torch.flatten(x2)
+            return self.act(self.linear(x2))
+
+    net = BasicNetwork()
+    return net
 
 @pytest.fixture()
 def net_lin_sig():
@@ -117,6 +134,33 @@ def test_bias(tlib, create_ctensor, check, net_bias):
     gradient = bias_tensor.contents.gradient
     expected = [1]*5
     check(gradient, expected)
+
+
+def test_pool_backward(tlib, create_ctensor, check_network, check, net_conv_sig_avgpool_lin_sig):
+    net = net_conv_sig_avgpool_lin_sig
+
+    input_arr = torch.ones((1,1, 8, 8))
+    output_arr = net(input_arr)
+    target = torch.Tensor([1])
+    loss = output_arr - target
+    loss.backward()
+
+    input_tensor = create_ctensor(input_arr.numpy().reshape(-1,1).squeeze().tolist(), 1,1,8,8)
+    target_tensor = create_ctensor([1], 1, 1)
+    cnet = create_ctensor(net, requires_grad=True)
+
+    conv_out = tlib.op_fp32conv2d(input_tensor, cnet['conv1.weight'], cnet['conv1.bias'], 1, 0)
+    act_out1 = tlib.op_fp32sigmoid(conv_out)
+    pool_out = tlib.op_fp32avgpool2d(act_out1, 2,2,1,0)
+    flatten_out = tlib.op_fp32flatten(pool_out)
+    linear_out= tlib.op_fp32linear(flatten_out, cnet['linear.weight'], cnet['linear.bias'])
+    act_out = tlib.op_fp32sigmoid(linear_out)
+    loss_out = tlib.op_fp32sub(act_out, target_tensor)
+    check(loss_out, loss)
+
+    tlib.backward(loss_out)
+    check_network(cnet, net, True)
+
 
 def test_backward_linear(tlib, create_ctensor, check_network, net_lin_sig):
     net = net_lin_sig
