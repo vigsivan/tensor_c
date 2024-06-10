@@ -90,7 +90,7 @@ def check():
 
         assert a.contents.size == len(b)
         for i in range(len(b)):
-            assert np.allclose(a.contents.data[i], b[i], 1e-6)
+            assert np.allclose(a.contents.data[i], b[i], atol=1e-6)
 
     return matches
 
