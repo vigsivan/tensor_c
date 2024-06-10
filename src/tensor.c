@@ -912,25 +912,42 @@ void backwardop_fp32avgpool2d(tensor_fp32* out){
     int kw = (int) out->children[2]->data[0];
     int stride = (int) out->children[3]->data[0];
 
-    if (stride != 1){
-        fprintf(stderr, "Cannot backprop with stride != 1 avgpool yet.\n");
-        exit(1);
+    int mid_h = floor(kh / 2);
+    int mid_w = floor(kw / 2);
+    int laddh, raddh, laddw, raddw;
+    if (kh % 2 == 0) {
+        laddh = mid_h, raddh = mid_h - 1;
+    }
+    else {
+        laddh = mid_h, raddh = mid_h;
+    }
+    if (kw % 2 == 0) {
+        laddw = mid_w, raddw = mid_w - 1;
+    }
+    else {
+        laddw = mid_w, raddw = mid_w;
     }
 
-    int padh = 0.5*ceil((child->dims[2]-1)*stride + 1 + (kh-1) - out->dims[2]);
-    int padw = 0.5*ceil((child->dims[3]-1)*stride + 1 + (kw-1) - out->dims[3]);
+    child->gradient = init_tensor(child->ndims, child->dims, NULL);
+    tensor_fp32* grad = out->gradient;
 
-    tensor_fp32* padded_gradient = scalarop_fp32pad2d(out->gradient, padh, padw, 0);
-    child->gradient = op_fp32avgpool2d(padded_gradient, kh, kw, 1, 0);
+    for (int n=0; n<child->dims[0]; n++){
+        for (int c=0; c < child-> dims[1]; c++) {
+            for (int h=laddh; h < child->dims[2] - raddh; h+=stride){
+                for (int w=laddw; w < child->dims[3] - raddw; w+=stride){
+                    float agg = 0.;
+                    int count = 0;
+                    int hindex = floor((h-laddh)/stride);
+                    int windex = floor((w-laddw)/stride);
+                    float val = GET(grad, n, c, hindex, windex) / (kh * kw);
 
-    if (child->gradient->ndims != child->ndims){
-        fprintf(stderr, "Avgpool gradient does not have the correct number of dimensions");
-        exit(1);
-    }
-    for (int i = 0; i < child->ndims; i++){
-        if (child->gradient->dims[i] != child->dims[i]){
-            fprintf(stderr, "Size mismatch: size of gradient does not match the input at index %d\n", i);
-            exit(1);
+                    for (int kh=h-laddh; kh <= h + raddh; kh++){
+                        for (int kw=w-laddw; kw <= w + raddw; kw++){
+                            SETPLUSEQUALS(child->gradient, val, n, c, kh, kw) ;
+                        }
+                    }
+                }
+            }
         }
     }
 }

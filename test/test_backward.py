@@ -77,8 +77,8 @@ def net_conv_sig_avgpool_lin_sig():
         def __init__(self):
             super().__init__()
             self.conv1 = torch.nn.Conv2d(in_channels=1, out_channels=2, kernel_size=3, stride=1, padding=0)
-            self.avgpool = torch.nn.AvgPool2d(kernel_size=(2,2), stride=(1,1))
-            self.linear = torch.nn.Linear(50, 1)
+            self.avgpool = torch.nn.AvgPool2d(kernel_size=(2,2), stride=(2,2))
+            self.linear = torch.nn.Linear(18, 1)
             self.act = torch.nn.Sigmoid()
             self.intermediate_vars = []
 
@@ -151,7 +151,7 @@ def test_pool_backward(tlib, create_ctensor, check_network, check, net_conv_sig_
 
     conv_out = tlib.op_fp32conv2d(input_tensor, cnet['conv1.weight'], cnet['conv1.bias'], 1, 0)
     act_out1 = tlib.op_fp32sigmoid(conv_out)
-    pool_out = tlib.op_fp32avgpool2d(act_out1, 2,2,1,0)
+    pool_out = tlib.op_fp32avgpool2d(act_out1, 2,2,2,0)
     flatten_out = tlib.op_fp32flatten(pool_out)
     linear_out= tlib.op_fp32linear(flatten_out, cnet['linear.weight'], cnet['linear.bias'])
     act_out = tlib.op_fp32sigmoid(linear_out)

@@ -5,6 +5,7 @@
 
 #define GET(t,...) op_fp32getindex(t, t->ndims, __VA_ARGS__)
 #define SET(t, v, ...) op_fp32setindex(t, v, t->ndims, __VA_ARGS__)
+#define SETPLUSEQUALS(t, v, ...) op_fp32setindex(t, op_fp32getindex(t, t->ndims, __VA_ARGS__)+v, t->ndims, __VA_ARGS__)
 #define NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 #define T(...) init_empty_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
 #define ONES(...) init_ones_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
