@@ -12,7 +12,6 @@ Example usage with ctypes in Python:
     linear_out= tlib.op_fp32linear(flatten_out, cnet['linear.weight'], cnet['linear.bias'])
     act_out = tlib.op_fp32sigmoid(linear_out)
     loss_out = tlib.op_fp32sub(act_out, target_tensor)
-    check(loss_out, loss)
 
     tlib.backward(loss_out)
 
