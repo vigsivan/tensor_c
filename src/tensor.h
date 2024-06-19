@@ -8,8 +8,6 @@
 #define SETPLUSEQUALS(t, v, ...) op_fp32setindex(t, op_fp32getindex(t, t->ndims, __VA_ARGS__)+v, t->ndims, __VA_ARGS__)
 #define NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 #define T(...) init_empty_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
-#define ONES(...) init_ones_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
-#define RAND(...) init_random_tensor(NUMARGS(__VA_ARGS__), __VA_ARGS__)
 #define REGISTER(t,operation,...)                                                    \
     do {                                                                             \
         int ntensors = (sizeof((tensor_fp32*[]){__VA_ARGS__})/sizeof(tensor_fp32*)); \

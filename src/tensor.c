@@ -44,33 +44,6 @@ tensor_fp32* init_empty_tensor(size_t ndims, ...){
     return init_tensor(ndims, dims, NULL);
 }
 
-tensor_fp32* init_ones_tensor(size_t ndims, ...){
-    va_list indexes;
-    va_start(indexes, ndims);
-    size_t dims[ndims];
-    for (int i = 0; i < ndims; i++){
-        dims[i] = va_arg(indexes, size_t);
-    }
-    tensor_fp32* t = init_tensor(ndims, dims, NULL);
-    for (int i = 0; i < t->size; i++){
-        t->data[i] = 1;
-    }
-    return t;
-}
-
-tensor_fp32* init_random_tensor(size_t ndims, ...){
-    fprintf(stderr, "init random tensor not yet implemented\n");
-    va_list indexes;
-    va_start(indexes, ndims);
-    size_t dims[ndims];
-    for (int i = 0; i < ndims; i++){
-        dims[i] = va_arg(indexes, size_t);
-    }
-    tensor_fp32* t = init_tensor(ndims, dims, NULL);
-    return t;
-}
-
-
 void free_tensor(tensor_fp32* t){
     free(t->data);
     free(t->dims);
@@ -92,7 +65,7 @@ void backward(tensor_fp32* t){
         fprintf(stderr, "Can only call backward on a one-item tensor\n");
         exit(1);
     }
-    t->gradient = ONES(1);
+    t->gradient = SCALAR(1);
     recursive_backprop(t);
 }
 
