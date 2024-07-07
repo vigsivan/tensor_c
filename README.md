@@ -1,4 +1,4 @@
-# A C Tensor Library For building ConvNets
+# A C Tensor Library
 
 Example usage with ctypes in Python:
 
